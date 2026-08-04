@@ -390,6 +390,9 @@
   .statuspill.pending { background: var(--accent-soft); color: var(--accent); }
   .statuspill.in_progress { background: var(--warn-soft); color: var(--warn); }
   .statuspill.done { background: var(--good-soft); color: var(--good); }
+  .statuspill.cancelled { background: var(--surface-alt); color: var(--text-muted); text-decoration: line-through; }
+  .actioncell { white-space: nowrap; }
+  .actioncell .btn.small { padding: 3px 9px; font-size: 12px; margin-right: 4px; }
 
   .billpill { font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
   .billpill.paid { background: var(--info-soft); color: var(--info); }
@@ -428,6 +431,17 @@
 
   /* ---------- Request form ---------- */
   .formwrap { display: grid; gap: 16px; max-width: 940px; }
+  .formpage { display: grid; grid-template-columns: minmax(0, 940px) 320px; gap: 20px; align-items: start; }
+  .formpage .formwrap { max-width: none; }
+  .stockpanel {
+    position: sticky; top: 20px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    overflow: hidden; display: flex; flex-direction: column; max-height: calc(100vh - 40px);
+  }
+  @media (max-width: 1280px) {
+    .formpage { grid-template-columns: 1fr; }
+    .stockpanel { position: static; max-height: none; }
+  }
   .logisticswrap { display: block; }
   .fcard {
     background: var(--surface); border: 1px solid var(--border);
@@ -569,6 +583,10 @@
         <input id="searchInput" type="text" placeholder="품목, 요청자, 요청팀, 수령자 검색...">
       </div>
       <div class="topbar-right">
+        <button class="btn ghost" id="exportExcelBtn" title="지금 화면에 보이는 목록을 엑셀로 내려받습니다">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0-4-4m4 4 4-4"/><path d="M4 17v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+          엑셀 다운로드
+        </button>
         <button class="btn primary" id="newRequestBtn">
           <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
           요청서 작성
@@ -636,7 +654,8 @@
       </div>
 
       <!-- ============ 요청서 작성 ============ -->
-      <div class="formwrap" id="formSection" style="display:none;">
+      <div class="formpage" id="formSection" style="display:none;">
+       <div class="formwrap">
         <div id="formBanner"></div>
 
         <div class="fcard">
@@ -703,9 +722,10 @@
           </div>
           <div class="fsec-body">
             <div class="hint" style="margin-bottom:8px;">
-              타부서에서 받은 발주서(.xls/.xlsx)를 올리면 상품·수령정보가 자동으로 채워집니다
+              타부서에서 받은 발주서(.xls/.xlsx)를 올리면 상품·수령정보가 자동으로 채워집니다.
+              여러 지점 발주서를 동시에 선택하면 한 요청(합포장)으로 묶입니다.
             </div>
-            <input id="fOrderFile" type="file" accept=".xls,.xlsx">
+            <input id="fOrderFile" type="file" accept=".xls,.xlsx" multiple>
             <div class="ferr" id="fOrderFileMsg" style="margin-top:6px;font-size:13px;"></div>
           </div>
         </div>
@@ -737,7 +757,7 @@
             <div class="frow">
               <div class="field">
                 <label for="fRcvName">수령자 이름<span class="req">*</span></label>
-                <input id="fRcvName" type="text" placeholder="예: 김수령" autocomplete="off">
+                <input id="fRcvName" type="text" list="receiverOptions" placeholder="예: 김수령" autocomplete="off">
                 <div class="ferr" data-err="fRcvName"></div>
               </div>
               <div class="field">
@@ -764,11 +784,39 @@
             <button type="button" class="btn primary" id="submitFormBtn">대장부에 등록</button>
           </div>
         </div>
+       </div>
+
+       <!-- 이지어드민 실시간 재고 검색 — 항상 떠 있는 패널 -->
+       <div class="stockpanel">
+          <div style="padding:14px 16px;border-bottom:1px solid var(--border);background:var(--accent-soft);">
+            <strong style="font-size:14px;color:var(--accent);">📦 이지어드민 실시간 재고 검색</strong>
+          </div>
+          <div style="padding:12px 16px;border-bottom:1px solid var(--border);">
+            <div style="display:flex;gap:6px;">
+              <input id="stockSearchInput" type="text" placeholder="상품코드 · 상품명 · 키워드"
+                     style="flex:1;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);
+                     border-radius:8px;font-size:13px;">
+              <button type="button" id="stockSearchRefreshBtn" title="방금 등록한 상품이 안 보이면 눌러 주세요"
+                      style="border:1px solid var(--border);border-radius:8px;background:var(--surface-alt);
+                      cursor:pointer;font-size:15px;padding:0 10px;">🔄</button>
+            </div>
+            <div style="font-size:11.5px;color:var(--text-muted);margin-top:6px;">
+              1차 재고 확인 → 2차 상품명 확인 → 3차 상품코드 확인, 여기서 한 번에! ·
+              방금 등록한 상품은 🔄로 새로고침
+            </div>
+          </div>
+          <div id="stockSearchResults" style="overflow-y:auto;flex:1;padding:6px 0;font-size:13px;">
+            <div style="padding:20px 16px;color:var(--text-muted);text-align:center;">
+              상품코드나 이름을 입력하면<br>여기에 재고가 바로 보여요.
+            </div>
+          </div>
+       </div>
       </div>
 
       <datalist id="teamOptions"></datalist>
       <datalist id="requesterOptions"></datalist>
       <datalist id="assigneeOptions"></datalist>
+      <datalist id="receiverOptions"></datalist>
 
       <div class="tablecard">
         <div class="tablecard-head">
@@ -804,6 +852,7 @@
                 <th>수령처</th>
                 <th>상태</th>
                 <th>완료일시</th>
+                <th>관리</th>
               </tr>
             </thead>
             <tbody id="tableBody"></tbody>
@@ -864,6 +913,14 @@
   const API_STOCK  = API_BASE + "/api/stock";
 
   let SERVER = [];
+
+  // 수정 모드 상태 — 이 값이 있으면 제출 시 새로 만들지 않고 이 요청을 업데이트합니다.
+  let editingSrNo = null;
+
+  // Slack 링크를 통해 들어온 경우, 나중에 송장 알림을 보낼 수 있도록 기억해 둡니다.
+  const _urlParams = new URLSearchParams(window.location.search);
+  const originSlackChannel = _urlParams.get("slack_channel") || null;
+  const originSlackUser = _urlParams.get("slack_user") || null;
   let serverOk = true;
   let serverMsg = "";
 
@@ -1040,7 +1097,7 @@
     if (d === 1) return `${r.desiredDate} (내일)`;
     return r.desiredDate;
   }
-  const STATUS_LABEL = { pending: "대기", in_progress: "진행중", done: "완료" };
+  const STATUS_LABEL = { pending: "대기", in_progress: "진행중", done: "완료", cancelled: "취소" };
   const BILLING_LABEL = { paid: "유상", free: "무상" };
   const CHANNELS = ["옵티마 약국", "오프뷰티", "올리브", "기타"];
 
@@ -1170,6 +1227,9 @@
     if (el.value === "") activeChannel = null;
   }
 
+  // 수령자 이름 → 가장 최근에 썼던 연락처/주소/메세지 (자동완성용)
+  let RECEIVER_HISTORY = {};
+
   function renderDatalists() {
     const fill = (id, values) => {
       document.getElementById(id).innerHTML = [...new Set(values.filter(Boolean))]
@@ -1178,6 +1238,21 @@
     fill("teamOptions", DATA.map(r => r.team));
     fill("requesterOptions", DATA.map(r => r.requester));
     fill("assigneeOptions", DATA.map(r => r.assignee));
+    fill("receiverOptions", DATA.map(r => r.receiver.name));
+
+    // 접수일시가 최신인 순서로 정리해서, 이름별 "가장 최근" 수령정보만 남깁니다.
+    RECEIVER_HISTORY = {};
+    DATA.slice()
+      .sort((a, b) => (a.receivedAt || "").localeCompare(b.receivedAt || ""))
+      .forEach(r => {
+        const name = (r.receiver.name || "").trim();
+        if (!name) return;
+        RECEIVER_HISTORY[name] = {
+          phone: r.receiver.phone || "",
+          address: r.receiver.address || "",
+          message: r.receiver.message || "",
+        };
+      });
   }
 
   function productTableHtml(r) {
@@ -1224,6 +1299,39 @@
       </div>
       <div class="dfield"><div class="k">요청내용</div><div class="v">${v(r.content)}</div></div>
       ${r.note ? `<div class="dfield"><div class="k">비고</div><div class="v">${esc(r.note)}</div></div>` : ""}
+      ${r.status === "cancelled" ? "" : trackingBoxHtml(r)}
+    </div>`;
+  }
+
+  /** 송장 정보 영역 — 세 가지 상태: 미연결 / 연결됨(대기중) / 등록완료 */
+  function trackingBoxHtml(r) {
+    if (r.trackingNo) {
+      // 이미 등록 완료 (자동이든 수기든)
+      return `<div class="dgrid" style="margin-top:4px;">
+        <div class="dfield"><div class="k">택배사</div><div class="v">${esc(r.carrier || "-")}</div></div>
+        <div class="dfield"><div class="k">송장번호</div><div class="v num">${esc(r.trackingNo)}</div></div>
+        <div class="dfield"><div class="k">상태</div><div class="v" style="color:var(--good);font-weight:700;">등록 완료</div></div>
+      </div>`;
+    }
+    if (r.ezadminSeq) {
+      // 연결은 됐고, 자동 확인 대기 중
+      return `<div class="dgrid" style="margin-top:4px;">
+        <div class="dfield" style="grid-column: span 2;"><div class="k">이지어드민 관리번호</div>
+          <div class="v num">${esc(r.ezadminSeq)} <span style="color:var(--text-muted);font-weight:400;">— 송장 등록되면 자동으로 채워집니다 (최대 5분 주기 확인)</span></div>
+        </div>
+        <div class="dfield" style="align-self:end;">
+          <button type="button" class="btn ghost small linkOrderBtn" data-id="${esc(r.requestId)}">번호 다시 연결</button>
+        </div>
+      </div>`;
+    }
+    // 아직 연결 안 함
+    return `<div class="dgrid" style="margin-top:4px;">
+      <div class="dfield" style="grid-column: span 2;"><div class="k">이지어드민 관리번호</div><div class="v">
+        <input type="text" class="linkSeqInput" data-id="${esc(r.requestId)}" placeholder="예: 128841" style="width:100%;">
+      </div></div>
+      <div class="dfield" style="align-self:end;">
+        <button type="button" class="btn small linkOrderBtn" data-id="${esc(r.requestId)}">연결</button>
+      </div>
     </div>`;
   }
 
@@ -1283,7 +1391,7 @@
     } else { fallback(); }
   }
 
-  function renderTable() {
+  function getFilteredRows() {
     let rows = DATA.slice();
     if (activeView === "done") rows = rows.filter(r => r.status === "done");
     if (activeStatus) rows = rows.filter(r => r.status === activeStatus);
@@ -1305,6 +1413,11 @@
       if (hasMissingInfo(a) !== hasMissingInfo(b)) return hasMissingInfo(a) ? -1 : 1;
       return (a.desiredDate || "9999").localeCompare(b.desiredDate || "9999");
     });
+    return rows;
+  }
+
+  function renderTable() {
+    const rows = getFilteredRows();
 
     const body = document.getElementById("tableBody");
     document.getElementById("tableEmpty").style.display = rows.length ? "none" : "";
@@ -1327,14 +1440,20 @@
         <td class="num">${qty ?? "-"}</td>
         <td class="num" data-stock-code="${esc((r.products[0] && r.products[0].code) || "")}">${stockCellText(r)}</td>
         <td>${r.billing ? `<span class="billpill ${r.billing}">${BILLING_LABEL[r.billing]}</span>` : "-"}</td>
-        <td class="duecell${isOverdue(r) ? " overdue" : isSoon(r) ? " soon" : ""}">${fmtDue(r)}</td>
+        <td class="duecell${isOverdue(r) ? " overdue" : isSoon(r) ? " soon" : ""}">${(isOverdue(r) || isSoon(r)) ? "🔥 " : ""}${fmtDue(r)}</td>
         <td>${esc(r.receiver.name) || "-"}</td>
         <td class="msg" title="${esc(r.receiver.address)}">${esc(r.receiver.address) || "-"}</td>
         <td><span class="statuspill ${r.status}">${STATUS_LABEL[r.status]}</span></td>
         <td class="num">${esc(r.completedAt) || "-"}</td>
+        <td class="actioncell" onclick="event.stopPropagation()">
+          ${r.status === "cancelled" ? "-" : `
+            <button type="button" class="btn ghost small rowEditBtn" data-id="${esc(r.requestId)}">수정</button>
+            <button type="button" class="btn ghost small rowCancelBtn" data-id="${esc(r.requestId)}">취소</button>
+          `}
+        </td>
       </tr>
       <tr class="detailrow" data-detail="${esc(r.requestId)}"${open ? "" : ' style="display:none;"'}>
-        <td colspan="16">${detailHtml(r)}</td>
+        <td colspan="17">${detailHtml(r)}</td>
       </tr>`;
     }).join("");
 
@@ -1616,16 +1735,20 @@
       receiverAddress: f.receiver.address || null,
       receiverMessage: f.receiver.message || null,
       billingType: f.billing,
+      slackChannelId: editingSrNo ? undefined : originSlackChannel,
+      slackUserId: editingSrNo ? undefined : originSlackUser,
     };
 
     const submitBtn = document.getElementById("submitFormBtn");
     const btnLabel = submitBtn ? submitBtn.textContent : "";
-    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "저장 중..."; }
+    const isEdit = !!editingSrNo;
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = isEdit ? "수정 저장 중..." : "저장 중..."; }
 
     let created;
     try {
-      const res = await fetch(API_CREATE, {
-        method: "POST",
+      const url = isEdit ? (API_CREATE + "/" + encodeURIComponent(editingSrNo)) : API_CREATE;
+      const res = await fetch(url, {
+        method: isEdit ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
@@ -1647,10 +1770,17 @@
 
     if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = btnLabel; }
 
-    const entry = { requestId: (created && created.sr) ? created.sr : "" };
+    const entry = { requestId: (created && created.sr) ? created.sr : (editingSrNo || "") };
+    const wasEdit = isEdit;
+    editingSrNo = null;
 
     await fetchFromServer();
     resetForm(true);
+
+    if (wasEdit) {
+      showBanner(`<span>${esc(entry.requestId)} 요청서가 수정되었습니다.</span>`, "");
+      return;
+    }
 
     showBanner(
       `<span>${esc(entry.requestId)} 요청서가 서버에 등록되었습니다.</span>
@@ -1692,9 +1822,283 @@
     if (!keepBanner) showBanner("");
   }
 
+  /** 대장부 표의 '수정' 버튼 — 요청서 작성 화면을 그 요청 내용으로 채워서 엽니다. */
+  function prefillFormForEdit(r) {
+    editingSrNo = r.requestId;
+    resetForm(true);
+    setView("form");
+
+    document.getElementById("fTeam").value = r.team || "";
+    document.getElementById("fRequester").value = r.requester || "";
+    document.getElementById("fAssignee").value = r.assignee || "";
+    document.getElementById("fContent").value = r.content || "";
+    document.getElementById("fRequestDate").value = r.requestDate || TODAY;
+    document.getElementById("fDesiredDate").value = r.desiredDate || "";
+
+    billingValue = r.billing || "";
+    document.querySelectorAll("#billingSeg .segbtn").forEach(b => {
+      const sel = b.dataset.val === billingValue;
+      b.classList.toggle("sel", sel);
+      b.setAttribute("aria-pressed", sel ? "true" : "false");
+    });
+
+    document.querySelectorAll(".chBox").forEach(b => {
+      const on = r.channels.includes(b.value);
+      b.checked = on;
+      const opt = b.closest(".checkopt");
+      if (opt) opt.classList.toggle("on", on);
+    });
+    if (r.channelOther) {
+      document.getElementById("fChannelOther").value = r.channelOther;
+      document.getElementById("channelOtherWrap").style.display = "";
+      const otherBox = [...document.querySelectorAll(".chBox")].find(b => b.value === "기타");
+      if (otherBox) { otherBox.checked = true; otherBox.closest(".checkopt")?.classList.add("on"); }
+    }
+
+    document.getElementById("fRcvName").value = r.receiver.name || "";
+    document.getElementById("fRcvPhone").value = r.receiver.phone || "";
+    document.getElementById("fRcvAddr").value = r.receiver.address || "";
+    document.getElementById("fRcvMsg").value = r.receiver.message || "";
+
+    document.getElementById("productRows").innerHTML = "";
+    productSeq = 0;
+    if (r.products.length) {
+      r.products.forEach(p => {
+        addProductRow(false);
+        const row = document.querySelector("#productRows .prow:last-child");
+        row.querySelector(".pCode").value = p.code || "";
+        row.querySelector(".pName").value = p.name || "";
+        row.querySelector(".pOpt").value = p.option || "";
+        row.querySelector(".pQty").value = p.qty ?? "";
+      });
+    } else {
+      addProductRow(false);
+    }
+
+    const submitBtn = document.getElementById("submitFormBtn");
+    if (submitBtn) submitBtn.textContent = "수정 저장";
+
+    showBanner(`<span>${esc(r.requestId)} 요청을 수정하는 중입니다. 내용을 고치고 다시 제출해 주세요.</span>`, "warn");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  /** 대장부 표의 '취소' 버튼 */
+  async function cancelRequest(srNo) {
+    if (!confirm(`${srNo} 요청을 취소하시겠습니까? 취소해도 기록은 남고, 목록에서 '취소' 상태로 표시됩니다.`)) return;
+    try {
+      const res = await fetch(API_CREATE + "/" + encodeURIComponent(srNo) + "/cancel", { method: "PATCH" });
+      if (!res.ok) throw new Error("서버 응답 " + res.status);
+      await fetchFromServer();
+    } catch (e) {
+      alert(srNo + " 취소에 실패했습니다: " + (e.message || "연결 오류"));
+    }
+  }
+
+  /** 대장부 상세보기의 '연결' 버튼 — 관리번호만 넘기면, 나머지는 백그라운드에서 자동 처리됩니다. */
+  async function linkOrder(srNo, seq) {
+    if (!seq.trim()) { alert("이지어드민 관리번호를 입력해 주세요."); return; }
+    try {
+      const res = await fetch(API_CREATE + "/" + encodeURIComponent(srNo) + "/link-order", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seq: seq.trim() }),
+      });
+      if (!res.ok) throw new Error("서버 응답 " + res.status);
+      await fetchFromServer();
+      alert(srNo + " 관리번호가 연결됐습니다. 송장이 등록되면 자동으로 채워지고 요청자에게도 자동 알림이 갑니다.");
+    } catch (e) {
+      alert(srNo + " 연결에 실패했습니다: " + (e.message || "연결 오류"));
+    }
+  }
+
+  // 표의 수정/취소/관리번호연결 버튼 — 이벤트 위임으로 한 번에 처리
+  document.getElementById("tableBody").addEventListener("click", (e) => {
+    const editBtn = e.target.closest(".rowEditBtn");
+    if (editBtn) {
+      const r = DATA.find(x => x.requestId === editBtn.dataset.id);
+      if (r) prefillFormForEdit(r);
+      return;
+    }
+    const cancelBtn = e.target.closest(".rowCancelBtn");
+    if (cancelBtn) { cancelRequest(cancelBtn.dataset.id); return; }
+
+    const linkBtn = e.target.closest(".linkOrderBtn");
+    if (linkBtn) {
+      const id = linkBtn.dataset.id;
+      const input = document.querySelector(`.linkSeqInput[data-id="${CSS.escape(id)}"]`);
+      const seq = input ? input.value : prompt("이지어드민 관리번호를 입력해 주세요");
+      if (seq != null) linkOrder(id, seq);
+    }
+  });
+
+  // ===== 물류팀 변경 알림 (CS창 스타일) =====
+  // 이미 진행중/완료인 건을 요청자가 수정·취소하면 여기에 뜹니다. 직접 '확인'을 눌러야 사라집니다.
+  const seenAlertIds = new Set();
+
+  async function pollAlerts() {
+    try {
+      const res = await fetch(API_BASE + "/api/requests/alerts");
+      if (!res.ok) return;
+      const list = await res.json();
+      renderAlertPanel(list);
+    } catch (e) { /* 조용히 무시 — 다음 주기에 다시 시도 */ }
+  }
+
+  function renderAlertPanel(list) {
+    let panel = document.getElementById("alertPanel");
+    if (!panel) {
+      panel = document.createElement("div");
+      panel.id = "alertPanel";
+      panel.style.cssText = "position:fixed;right:20px;bottom:20px;width:320px;max-height:70vh;overflow-y:auto;z-index:9999;display:flex;flex-direction:column;gap:8px;";
+      document.body.appendChild(panel);
+    }
+    if (!list.length) { panel.innerHTML = ""; return; }
+
+    panel.innerHTML = list.map(a => {
+      const label = a.status === "cancelled" ? "취소" : "수정";
+      return `<div class="alertcard" style="background:var(--surface);border:1px solid var(--danger);
+                  border-radius:10px;padding:12px 14px;box-shadow:var(--shadow);">
+        <div style="font-weight:700;color:var(--danger);font-size:13px;margin-bottom:4px;">⚠ 요청 변경 알림</div>
+        <div style="font-size:13px;line-height:1.5;">
+          <strong>${esc(a.requestId)}</strong> (${esc(a.team)} · ${esc(a.requester)})<br>
+          이미 처리 중이던 요청이 <strong>${label}</strong>되었습니다.
+        </div>
+        <div style="margin-top:8px;text-align:right;">
+          <button type="button" class="btn small alertAckBtn" data-id="${esc(a.requestId)}">확인</button>
+        </div>
+      </div>`;
+    }).join("");
+
+    panel.querySelectorAll(".alertAckBtn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const id = btn.dataset.id;
+        btn.disabled = true;
+        try {
+          await fetch(API_BASE + "/api/requests/" + encodeURIComponent(id) + "/alerts/ack", { method: "POST" });
+        } catch (e) { /* 실패해도 다음 조회 때 다시 뜸 */ }
+        pollAlerts();
+      });
+    });
+  }
+
+  // ===== 이지어드민 재고 검색 배너 (요청서 작성 화면에 항상 떠 있는 패널) =====
+  (function setupStockSearch(){
+    const input = document.getElementById("stockSearchInput");
+    const results = document.getElementById("stockSearchResults");
+    if (!input || !results) return;
+
+    const refreshBtn = document.getElementById("stockSearchRefreshBtn");
+    refreshBtn.addEventListener("click", async () => {
+      refreshBtn.disabled = true;
+      const original = refreshBtn.textContent;
+      refreshBtn.textContent = "⏳";
+      try {
+        await fetch(API_BASE + "/api/stock/refresh", { method: "POST" });
+        const q = input.value.trim();
+        if (q) await runStockSearch(q);
+      } catch (e) { /* 실패해도 기존 캐시로 계속 검색 가능 */ }
+      refreshBtn.disabled = false;
+      refreshBtn.textContent = original;
+    });
+
+    let debounceTimer = null;
+    input.addEventListener("input", () => {
+      clearTimeout(debounceTimer);
+      const q = input.value.trim();
+      if (!q) {
+        results.innerHTML = '<div style="padding:20px 16px;color:var(--text-muted);text-align:center;">상품코드나 이름을 입력하면<br>여기에 재고가 바로 보여요.</div>';
+        return;
+      }
+      results.innerHTML = '<div style="padding:14px 16px;color:var(--text-muted);">검색 중...</div>';
+      debounceTimer = setTimeout(() => runStockSearch(q), 350);
+    });
+
+    async function runStockSearch(q){
+      try {
+        const res = await fetch(API_BASE + "/api/stock/search?q=" + encodeURIComponent(q));
+        if (!res.ok) throw new Error("서버 응답 " + res.status);
+        const list = await res.json();
+        renderResults(list);
+      } catch (e) {
+        results.innerHTML = '<div style="padding:14px 16px;color:var(--danger);">검색에 실패했습니다.</div>';
+      }
+    }
+
+    function renderResults(list){
+      if (!list.length) {
+        results.innerHTML = '<div style="padding:14px 16px;color:var(--text-muted);">일치하는 상품이 없습니다.</div>';
+        return;
+      }
+      results.innerHTML = list.map(p => {
+        const stockText = p.available != null ? `가용 ${p.available}` : (p.stock != null ? `재고 ${p.stock}` : "재고 확인 불가");
+        return `<div class="stockResultRow" data-code="${esc(p.productId)}" data-name="${esc(p.name)}"
+             style="padding:9px 16px;border-bottom:1px solid var(--border);cursor:pointer;">
+          <div style="font-weight:600;">${esc(p.name)}</div>
+          <div style="display:flex;justify-content:space-between;color:var(--text-muted);font-size:12px;margin-top:2px;">
+            <span>${esc(p.productId)}</span>
+            <span style="color:${p.available != null && p.stock != null && p.available <= 0 ? 'var(--danger)' : 'var(--accent)'};font-weight:600;">${stockText}</span>
+          </div>
+        </div>`;
+      }).join("");
+
+      results.querySelectorAll(".stockResultRow").forEach(row => {
+        row.addEventListener("click", () => {
+          const code = row.dataset.code, name = row.dataset.name;
+          // 마지막 상품 줄이 비어 있으면 거기에 채우고, 아니면 새 줄을 추가합니다.
+          const rows = document.querySelectorAll("#productRows .prow");
+          let target = rows[rows.length - 1];
+          if (!target || target.querySelector(".pName").value.trim()) {
+            addProductRow(false);
+            target = document.querySelector("#productRows .prow:last-child");
+          }
+          target.querySelector(".pCode").value = code;
+          target.querySelector(".pName").value = name;
+          target.querySelector(".pQty").focus();
+        });
+      });
+    }
+  })();
+
+  pollAlerts();
+  setInterval(pollAlerts, 10000);
+
   /* ---------- 이벤트 ---------- */
   document.querySelectorAll(".navitem").forEach(b => b.addEventListener("click", () => setView(b.dataset.view)));
   document.getElementById("newRequestBtn").addEventListener("click", () => setView("form"));
+
+  /** 지금 화면에 보이는(필터 적용된) 목록을 엑셀로 내려받습니다. */
+  document.getElementById("exportExcelBtn").addEventListener("click", () => {
+    const rows = getFilteredRows();
+    if (!rows.length) { alert("내려받을 항목이 없습니다."); return; }
+
+    const sheetData = rows.map(r => ({
+      "요청번호": r.requestId,
+      "요청일자": r.requestDate,
+      "요청팀": r.team,
+      "요청자": r.requester,
+      "담당자": r.assignee || "",
+      "판매처": channelText(r),
+      "상품": productSummary(r),
+      "수량": totalQty(r) ?? "",
+      "구분": r.billing ? BILLING_LABEL[r.billing] : "",
+      "출고희망일": r.desiredDate,
+      "수령자": r.receiver.name || "",
+      "수령자연락처": r.receiver.phone || "",
+      "수령처": r.receiver.address || "",
+      "상태": STATUS_LABEL[r.status] || r.status,
+      "완료일시": r.completedAt || "",
+      "택배사": r.carrier || "",
+      "송장번호": r.trackingNo || "",
+      "요청내용": r.content || "",
+      "비고": r.note || "",
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(sheetData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "요청목록");
+    const stamp = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `출고요청_목록_${stamp}.xlsx`);
+  });
   document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
     document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
     t.classList.add("active");
@@ -1780,65 +2184,88 @@
     return -1;
   }
 
-  async function handleOrderFile(file) {
+  /** 발주서 하나를 읽어서 {receiver, products} 형태로 돌려줍니다 (파일 저장은 안 함). */
+  async function parseOrderFile(file) {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: "array" });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+    if (!rows.length) throw new Error(file.name + ": 빈 파일입니다.");
+
+    const header = rows[0].map(h => String(h || "").trim());
+    const col = {};
+    for (const key in ORDER_FILE_COLS) col[key] = findCol(header, ORDER_FILE_COLS[key]);
+
+    const dataRows = rows.slice(1).filter(r => r.some(v => String(v || "").trim() !== ""));
+    if (!dataRows.length) throw new Error(file.name + ": 상품 데이터를 찾지 못했습니다.");
+
+    const products = [];
+    dataRows.forEach(r => {
+      const name = col.상품명 >= 0 ? String(r[col.상품명] || "").trim() : "";
+      if (!name) return;
+      const opt = col.옵션 >= 0 ? String(r[col.옵션] || "").trim() : "";
+      let qty = 1;
+      if (col.수량 >= 0) {
+        const q = parseInt(String(r[col.수량] || "").trim(), 10);
+        qty = Number.isFinite(q) && q > 0 ? q : 1;
+      }
+      products.push({ name, option: opt, qty });
+    });
+
+    const first = dataRows[0];
+    const get = (colKey) => (col[colKey] >= 0 ? String(first[col[colKey]] || "").trim() : "");
+    const zip = get("수령자우편번호");
+    const addr = get("수령자주소");
+    const receiver = {
+      name: get("수령자이름"),
+      phone: get("수령자연락처"),
+      address: zip ? `(${zip}) ${addr}` : addr,
+      message: get("배송메세지"),
+    };
+
+    return { fileName: file.name, receiver, products };
+  }
+
+  /**
+   * 여러 발주서를 한 번에 처리합니다 (합포장 — 지점별 발주서를 한 요청에 묶어서 출고).
+   * 상품은 모든 파일에서 합치고, 수령정보는 첫 번째 파일 기준으로 채웁니다.
+   */
+  async function handleOrderFiles(fileList) {
     const msgEl = document.getElementById("fOrderFileMsg");
     msgEl.textContent = "읽는 중...";
     msgEl.style.color = "";
 
     try {
-      const buf = await file.arrayBuffer();
-      const wb = XLSX.read(buf, { type: "array" });
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+      const files = Array.from(fileList);
+      const parsed = [];
+      for (const f of files) parsed.push(await parseOrderFile(f));
 
-      if (!rows.length) throw new Error("빈 파일입니다.");
+      // 수령정보는 첫 번째 파일 기준
+      const first = parsed[0].receiver;
+      const setVal = (id, v) => { if (v) document.getElementById(id).value = v; };
+      setVal("fRcvName", first.name);
+      setVal("fRcvPhone", first.phone);
+      setVal("fRcvAddr", first.address);
+      setVal("fRcvMsg", first.message);
 
-      const header = rows[0].map(h => String(h || "").trim());
-      const col = {};
-      for (const key in ORDER_FILE_COLS) col[key] = findCol(header, ORDER_FILE_COLS[key]);
-
-      const dataRows = rows.slice(1).filter(r => r.some(v => String(v || "").trim() !== ""));
-      if (!dataRows.length) throw new Error("상품 데이터를 찾지 못했습니다.");
-
-      // 수령정보는 첫 번째 줄 기준 (한 발주서 = 한 수령처 가정)
-      const first = dataRows[0];
-      const setVal = (id, colKey) => {
-        if (col[colKey] < 0) return;
-        const v = String(first[col[colKey]] || "").trim();
-        if (v) document.getElementById(id).value = v;
-      };
-      setVal("fRcvName", "수령자이름");
-      setVal("fRcvPhone", "수령자연락처");
-      setVal("fRcvMsg", "배송메세지");
-
-      // 주소 = 우편번호 + 주소 합쳐서 한 칸에
-      if (col.수령자주소 >= 0) {
-        const addr = String(first[col.수령자주소] || "").trim();
-        const zip = col.수령자우편번호 >= 0 ? String(first[col.수령자우편번호] || "").trim() : "";
-        const full = zip ? `(${zip}) ${addr}` : addr;
-        if (full.trim()) document.getElementById("fRcvAddr").value = full.trim();
-      }
-
-      // 기존 상품 줄을 지우고, 발주서의 모든 줄을 상품으로 새로 추가
+      // 모든 파일의 상품을 합쳐서 상품 줄로 추가
       document.getElementById("productRows").innerHTML = "";
       let added = 0;
-      dataRows.forEach(r => {
-        const name = col.상품명 >= 0 ? String(r[col.상품명] || "").trim() : "";
-        if (!name) return;
-        addProductRow(false);
-        const row = document.querySelector("#productRows .prow:last-child");
-        row.querySelector(".pName").value = name;
-        if (col.옵션 >= 0) row.querySelector(".pOpt").value = String(r[col.옵션] || "").trim();
-        if (col.수량 >= 0) {
-          const q = parseInt(String(r[col.수량] || "").trim(), 10);
-          row.querySelector(".pQty").value = Number.isFinite(q) && q > 0 ? q : 1;
-        }
-        added += 1;
+      parsed.forEach(p => {
+        p.products.forEach(prod => {
+          addProductRow(false);
+          const row = document.querySelector("#productRows .prow:last-child");
+          row.querySelector(".pName").value = prod.name;
+          row.querySelector(".pOpt").value = prod.option;
+          row.querySelector(".pQty").value = prod.qty;
+          added += 1;
+        });
       });
-      if (!added) addProductRow(false); // 안전장치: 최소 1줄은 남겨 둠
+      if (!added) addProductRow(false);
 
       msgEl.style.color = "var(--accent)";
-      msgEl.textContent = `상품 ${added}건과 수령정보를 채웠습니다. 확인 후 등록해 주세요.`;
+      const fileWord = files.length > 1 ? `발주서 ${files.length}건 (합포장)` : "발주서 1건";
+      msgEl.textContent = `${fileWord} · 상품 ${added}건과 수령정보를 채웠습니다. 확인 후 등록해 주세요.`;
     } catch (e) {
       msgEl.style.color = "var(--danger)";
       msgEl.textContent = "파일을 읽지 못했습니다: " + (e.message || "형식을 확인해 주세요.")
@@ -1847,8 +2274,7 @@
   }
 
   document.getElementById("fOrderFile").addEventListener("change", (e) => {
-    const file = e.target.files[0];
-    if (file) handleOrderFile(file);
+    if (e.target.files.length) handleOrderFiles(e.target.files);
   });
 
   document.getElementById("addProductBtn").addEventListener("click", () => addProductRow(true));
@@ -1900,6 +2326,20 @@
     });
   });
   document.getElementById("submitFormBtn").addEventListener("click", submitForm);
+
+  // 수령자 이름을 입력하면(특히 자동완성에서 고르면), 예전에 썼던 연락처·주소·메세지를 자동으로 채웁니다.
+  // 이미 뭔가 적어 둔 칸은 덮어쓰지 않습니다 — 빈 칸만 채웁니다.
+  document.getElementById("fRcvName").addEventListener("input", (e) => {
+    const hit = RECEIVER_HISTORY[e.target.value.trim()];
+    if (!hit) return;
+    const setIfEmpty = (id, v) => {
+      const el = document.getElementById(id);
+      if (v && !el.value.trim()) el.value = v;
+    };
+    setIfEmpty("fRcvPhone", hit.phone);
+    setIfEmpty("fRcvAddr", hit.address);
+    setIfEmpty("fRcvMsg", hit.message);
+  });
   document.getElementById("resetFormBtn").addEventListener("click", () => resetForm(false));
 
   function exportLocalData() {
@@ -1954,6 +2394,11 @@
 
   fetchFromServer();
   setInterval(fetchFromServer, 30000);
+
+  // Slack 링크 버튼(#form)으로 들어온 경우, 요청서 작성 화면으로 바로 이동합니다.
+  if (window.location.hash === "#form") {
+    setView("form");
+  }
 
   // 안전장치: 화면이 다시 그려지는 타이밍과 상관없이, 3초마다 강제로 배지를 다시 칠합니다.
   setInterval(() => {
