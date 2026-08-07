@@ -1744,8 +1744,8 @@
         <input id="pName${i}" class="pName" type="text" placeholder="예: 포장 박스 (중)" autocomplete="off">
       </div>
       <div class="field">
-        <label for="pOpt${i}">옵션</label>
-        <input id="pOpt${i}" class="pOpt" type="text" placeholder="예: 300x200x150" autocomplete="off">
+        <label for="pOpt${i}">옵션<span class="req">*</span></label>
+        <input id="pOpt${i}" class="pOpt" type="text" placeholder="옵션 없으면 '없음' 입력" autocomplete="off">
       </div>
       <div class="field">
         <label for="pQty${i}">수량<span class="req">*</span></label>
@@ -1866,7 +1866,8 @@
     const target = filled.length ? filled : f.products.slice(0, 1);
     let productErr = "";
     target.forEach(p => {
-      if (!p.name) { productErr = "상품명과 수량은 모든 상품 줄에 입력해야 해요"; p.row.querySelector(".pName").classList.add("invalid"); }
+      if (!p.name) { productErr = "상품명은 모든 상품 줄에 입력해야 해요"; p.row.querySelector(".pName").classList.add("invalid"); }
+      if (!p.option) { productErr = "옵션도 모든 상품 줄에 입력해야 해요. (옵션이 없는 상품이면 '없음'이라고 적어 주세요)"; p.row.querySelector(".pOpt").classList.add("invalid"); }
       const q = Number(p.qtyRaw);
       if (!p.qtyRaw || !Number.isFinite(q) || q <= 0) { productErr = "수량은 1 이상의 숫자로 입력해 주세요"; p.row.querySelector(".pQty").classList.add("invalid"); }
     });
