@@ -1564,7 +1564,7 @@
         <td><span class="statuspill ${r.status}">${STATUS_LABEL[r.status]}</span></td>
         <td class="num">${r.trackingNo ? `<span class="trackbadge" title="${esc(r.carrier || "")}">🚚 ${esc(r.trackingNo)}</span>` : "-"}</td>
         <td class="num">${esc(r.completedAt) || "-"}</td>
-        <td class="actioncell" onclick="event.stopPropagation()">
+        <td class="actioncell">
           ${r.status === "cancelled" ? "-" : `
             <button type="button" class="btn ghost small rowEditBtn" data-id="${esc(r.requestId)}">수정</button>
             <button type="button" class="btn ghost small rowCancelBtn" data-id="${esc(r.requestId)}">취소</button>
