@@ -398,6 +398,10 @@
 
   .duecell.overdue { color: var(--danger); font-weight: 700; }
   .duecell.soon { color: var(--warn); font-weight: 700; }
+  /* 안전재고 화면에서는 수령자·수령처·송장 열을 숨김 (해당 없음) */
+  .reqtable.hide-supply .col-recv,
+  .reqtable.hide-supply .col-to,
+  .reqtable.hide-supply .col-track { display: none; }
 
   table.reqtable td.num { text-align: right; }
   table.reqtable th.num { text-align: right; }
@@ -893,11 +897,11 @@
                 <th class="num">수량</th>
                 <th class="num">가용재고</th>
                 <th>구분</th>
-                <th>출고 희망일</th>
-                <th>수령자</th>
-                <th>수령처</th>
+                <th class="col-due"><span class="dueLbl">출고 희망일</span></th>
+                <th class="col-recv">수령자</th>
+                <th class="col-to">수령처</th>
                 <th>상태</th>
-                <th>송장</th>
+                <th class="col-track">송장</th>
                 <th>완료일시</th>
                 <th>관리</th>
               </tr>
@@ -1377,9 +1381,10 @@
     const v = (s) => s ? esc(s) : '<span class="v empty">-</span>';
     const num = (s) => s ? `<span class="num">${esc(s)}</span>` : '<span class="v empty">-</span>';
     const drow = (k, val) => `<div class="drow"><div class="k">${k}</div><div class="v">${val}</div></div>`;
+    const safety = r.requestType === "안전재고";  // 안전재고는 수령·송장·판매처·유상무상 표시 안 함
     return `<div class="detailbox">
       <div class="dhead">
-        <span class="dtitle">${esc(r.requestId)} 상세</span>
+        <span class="dtitle">${esc(r.requestId)} 상세${safety ? ' · <span style="color:var(--info);font-weight:700;">안전재고</span>' : ''}</span>
         <span class="spacer">
           <button type="button" class="btn subtle small" data-copy="${esc(r.requestId)}">슬랙용 텍스트 복사</button>
           ${r.source === "local" ? `<button type="button" class="btn danger small" data-del="${esc(r.requestId)}">삭제</button>` : ""}
@@ -1391,26 +1396,26 @@
         ${productTableHtml(r)}
       </div>
 
-      <div class="dcard pad">
+      ${safety ? "" : `<div class="dcard pad">
         <div class="dcard-title">🚚 수령 정보</div>
         ${drow("수령자", v(r.receiver.name))}
         ${drow("연락처", num(r.receiver.phone))}
         ${drow("주소", v(r.receiver.address))}
         ${drow("배송 메세지", v(r.receiver.message))}
-      </div>
+      </div>`}
 
       <div class="dcard pad">
         <div class="dcard-title">📋 요청 정보</div>
-        ${drow("판매처", r.channels.length ? esc(channelText(r)) : '<span class="v empty">미지정</span>')}
+        ${safety ? "" : drow("판매처", r.channels.length ? esc(channelText(r)) : '<span class="v empty">미지정</span>')}
         ${drow("요청일자", num(r.requestDate))}
         ${drow("접수일시", num(r.receivedAt))}
-        ${drow("유상 / 무상", r.billing ? BILLING_LABEL[r.billing] : '<span class="v empty">미지정</span>')}
+        ${safety ? "" : drow("유상 / 무상", r.billing ? BILLING_LABEL[r.billing] : '<span class="v empty">미지정</span>')}
         ${drow("완료일시", num(r.completedAt))}
         ${drow("요청내용", v(r.content))}
         ${r.note ? drow("비고", esc(r.note)) : ""}
       </div>
 
-      ${r.status === "cancelled" ? "" : `<div class="dcard pad">
+      ${(r.status === "cancelled" || safety) ? "" : `<div class="dcard pad">
         <div class="dcard-title">🧾 송장 정보</div>
         ${trackingBoxHtml(r)}
       </div>`}
@@ -1558,11 +1563,11 @@
         <td class="num">${qty ?? "-"}</td>
         <td class="num" data-stock-code="${esc((r.products[0] && r.products[0].code) || "")}">${stockCellText(r)}</td>
         <td>${r.billing ? `<span class="billpill ${r.billing}">${BILLING_LABEL[r.billing]}</span>` : "-"}</td>
-        <td class="duecell${isOverdue(r) ? " overdue" : isSoon(r) ? " soon" : ""}">${(isOverdue(r) || isSoon(r)) ? "🔥 " : ""}${fmtDue(r)}</td>
-        <td>${esc(r.receiver.name) || "-"}</td>
-        <td class="msg" title="${esc(r.receiver.address)}">${esc(r.receiver.address) || "-"}</td>
+        <td class="duecell col-due${isOverdue(r) ? " overdue" : isSoon(r) ? " soon" : ""}">${(isOverdue(r) || isSoon(r)) ? "🔥 " : ""}${fmtDue(r)}</td>
+        <td class="col-recv">${esc(r.receiver.name) || "-"}</td>
+        <td class="msg col-to" title="${esc(r.receiver.address)}">${esc(r.receiver.address) || "-"}</td>
         <td><span class="statuspill ${r.status}">${STATUS_LABEL[r.status]}</span></td>
-        <td class="num">${r.trackingNo ? `<span class="trackbadge" title="${esc(r.carrier || "")}">🚚 ${esc(r.trackingNo)}</span>` : "-"}</td>
+        <td class="num col-track">${r.trackingNo ? `<span class="trackbadge" title="${esc(r.carrier || "")}">🚚 ${esc(r.trackingNo)}</span>` : "-"}</td>
         <td class="num">${esc(r.completedAt) || "-"}</td>
         <td class="actioncell">
           ${r.status === "cancelled" ? "-" : `
@@ -1670,6 +1675,11 @@
     const statusTabsEl = document.getElementById("statusTabs");
     if (statusTabsEl) statusTabsEl.style.display = listOnly ? "none" : "";
     if (listOnly) { activeStatus = ""; document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x.dataset.status === "")); }
+    // 안전재고 화면: 수령자·수령처·송장 열 숨기고, '출고 희망일'을 '재고 확보 희망일'로 표기
+    const reqTable = document.querySelector(".reqtable");
+    if (reqTable) reqTable.classList.toggle("hide-supply", isSafety);
+    const dueLbl = document.querySelector(".reqtable .dueLbl");
+    if (dueLbl) dueLbl.textContent = isSafety ? "재고 확보 희망일" : "출고 희망일";
 
     renderTable();
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1896,16 +1906,16 @@
       optionValue: products[0].option || null,
       quantity: products.reduce((a, p) => a + p.qty, 0),
       wantDate: f.desiredDate,
-      receivePlace: f.receiver.address || null,
+      receivePlace: isSafety ? null : (f.receiver.address || null),
       note: f.content || null,
       scope: "team",
-      channels: channelStr,
+      channels: isSafety ? "" : channelStr,
       productsJson: JSON.stringify(products),
-      receiverName: f.receiver.name || null,
-      receiverPhone: f.receiver.phone || null,
-      receiverAddress: f.receiver.address || null,
-      receiverMessage: f.receiver.message || null,
-      billingType: f.billing,
+      receiverName: isSafety ? null : (f.receiver.name || null),
+      receiverPhone: isSafety ? null : (f.receiver.phone || null),
+      receiverAddress: isSafety ? null : (f.receiver.address || null),
+      receiverMessage: isSafety ? null : (f.receiver.message || null),
+      billingType: isSafety ? "free" : f.billing,
       slackChannelId: editingSrNo ? undefined : originSlackChannel,
       slackUserId: editingSrNo ? undefined : originSlackUser,
     };
