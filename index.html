@@ -1748,6 +1748,7 @@
         <input id="pCode${i}" class="pCode" type="text" placeholder="예: PK-0032" autocomplete="off">
         <button type="button" class="btn ghost small stockCheckBtn" data-idx="${i}"
                 style="margin-top:4px;">재고확인</button>
+        <div class="pCodeWarn" style="display:none;margin-top:4px;font-size:11px;color:var(--warn);line-height:1.4;">⚠️ 코드를 비우면 물류대장에서 재고가 안 보여요. 오른쪽 재고검색에서 상품을 클릭하면 코드가 자동으로 채워져요.</div>
       </div>
       <div class="field">
         <label for="pName${i}">상품명<span class="req">*</span></label>
@@ -1775,6 +1776,15 @@
     });
   }
 
+  // 상품코드가 비어 있는데 상품명이 입력돼 있으면(=재고 조회가 안 되는 상태) 경고를 보여줍니다.
+  function updateCodeWarn(row) {
+    if (!row) return;
+    const code = row.querySelector(".pCode").value.trim();
+    const name = row.querySelector(".pName").value.trim();
+    const warn = row.querySelector(".pCodeWarn");
+    if (warn) warn.style.display = (!code && name) ? "block" : "none";
+  }
+
   function addProductRow(focus) {
     productSeq += 1;
     const wrap = document.getElementById("productRows");
@@ -1785,6 +1795,9 @@
       row.remove();
       syncProductRows();
     });
+    // 상품코드/상품명을 고칠 때마다 경고 표시를 다시 계산합니다.
+    row.querySelector(".pCode").addEventListener("input", () => updateCodeWarn(row));
+    row.querySelector(".pName").addEventListener("input", () => updateCodeWarn(row));
     syncProductRows();
     if (focus) row.querySelector(".pName").focus();
   }
@@ -2245,6 +2258,7 @@
           }
           target.querySelector(".pCode").value = code;
           target.querySelector(".pName").value = name;
+          updateCodeWarn(target);
           target.querySelector(".pQty").focus();
         });
       });
