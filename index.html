@@ -2218,15 +2218,43 @@
       debounceTimer = setTimeout(() => runStockSearch(q), 350);
     });
 
+    let searchSeq = 0;
     async function runStockSearch(q){
+      const seq = ++searchSeq;
       try {
-        const res = await fetch(API_BASE + "/api/stock/search?q=" + encodeURIComponent(q));
+        // 1단계: 이름·코드만 즉시 받아와 바로 표시 (재고는 아직 '조회중…')
+        const res = await fetch(API_BASE + "/api/stock/search?q=" + encodeURIComponent(q) + "&withStock=false");
         if (!res.ok) throw new Error("서버 응답 " + res.status);
         const list = await res.json();
+        if (seq !== searchSeq) return;   // 더 최신 검색이 있으면 이 결과는 버림
         renderResults(list);
+        fillStock(list, seq);            // 2단계: 재고 숫자는 곧바로 따로 채움 (검색을 막지 않음)
       } catch (e) {
-        results.innerHTML = '<div style="padding:14px 16px;color:var(--danger);">검색에 실패했어요.</div>';
+        if (seq === searchSeq) results.innerHTML = '<div style="padding:14px 16px;color:var(--danger);">검색에 실패했어요.</div>';
       }
+    }
+
+    // 2단계 — 방금 표시한 상품들의 실시간 재고를 받아와 '조회중…' 자리를 실제 숫자로 채웁니다.
+    async function fillStock(list, seq){
+      const codes = list.map(p => p.productId).filter(Boolean);
+      if (!codes.length) return;
+      try {
+        const res = await fetch(API_BASE + "/api/stock?codes=" + encodeURIComponent(codes.join(",")));
+        if (!res.ok) return;
+        const map = await res.json();
+        if (seq !== searchSeq) return;   // 이미 다른 검색으로 넘어갔으면 건드리지 않음
+        results.querySelectorAll(".stkVal").forEach(el => {
+          const s = map[el.dataset.code];
+          if (s && (s.available != null || s.stock != null)) {
+            const avail = s.available != null ? s.available : s.stock;
+            el.textContent = s.available != null ? ("가용 " + avail) : ("재고 " + s.stock);
+            el.style.color = (avail <= 0) ? 'var(--danger)' : 'var(--accent)';
+          } else {
+            el.textContent = "재고 없음";
+            el.style.color = 'var(--text-muted)';
+          }
+        });
+      } catch (e) { /* 재고만 못 채운 것 — 이름·코드는 이미 떠 있음 */ }
     }
 
     function renderResults(list){
@@ -2235,13 +2263,16 @@
         return;
       }
       results.innerHTML = list.map(p => {
-        const stockText = p.available != null ? `가용 ${p.available}` : (p.stock != null ? `재고 ${p.stock}` : "재고 확인 불가");
+        const has = (p.available != null || p.stock != null);
+        const stockText = has ? (p.available != null ? `가용 ${p.available}` : `재고 ${p.stock}`) : "조회중…";
+        const val = p.available != null ? p.available : p.stock;
+        const stockColor = has ? ((val <= 0) ? 'var(--danger)' : 'var(--accent)') : 'var(--text-muted)';
         return `<div class="stockResultRow" data-code="${esc(p.productId)}" data-name="${esc(p.name)}"
              style="padding:9px 16px;border-bottom:1px solid var(--border);cursor:pointer;">
           <div style="font-weight:600;">${esc(p.name)}</div>
           <div style="display:flex;justify-content:space-between;color:var(--text-muted);font-size:12px;margin-top:2px;">
             <span>${esc(p.productId)}</span>
-            <span style="color:${p.available != null && p.stock != null && p.available <= 0 ? 'var(--danger)' : 'var(--accent)'};font-weight:600;">${stockText}</span>
+            <span class="stkVal" data-code="${esc(p.productId)}" style="color:${stockColor};font-weight:600;">${stockText}</span>
           </div>
         </div>`;
       }).join("");
