@@ -1,0 +1,16 @@
+{
+  "name": "WISLAND 출고요청서",
+  "short_name": "WISLAND",
+  "description": "WISLAND 물류 출고 요청서 작성",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1577cc",
+  "theme_color": "#1577cc",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
