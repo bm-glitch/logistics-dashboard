@@ -1987,13 +1987,18 @@
     }
 
     showBanner(
-      `<span>${esc(entry.requestId)} 요청서를 등록했어요.</span>
+      `<span style="font-size:15px;">✅ <strong>요청서가 생성되었습니다!</strong> <span style="opacity:.8;">(${esc(entry.requestId)})</span></span>
        <span class="bspacer">
          <button type="button" class="btn subtle small" id="bannerCopy">슬랙용 텍스트 복사</button>
          <button type="button" class="btn ghost small" id="bannerGoto">대장부에서 보기</button>
        </span>`,
       ""
     );
+    // 제출 버튼이 화면 아래에 있어, 등록 확인 문구가 잘 보이도록 화면을 위(배너 위치)로 올립니다.
+    try {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      document.getElementById("formBanner").scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (e) {}
     document.getElementById("bannerCopy").addEventListener("click", (e) => {
       const r = DATA.find(x => x.requestId === entry.requestId);
       if (r) copyText(slackText(r), e.currentTarget);
