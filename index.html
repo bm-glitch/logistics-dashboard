@@ -605,9 +605,13 @@
     .content{ padding:16px 14px 40px; min-width:0; max-width:100%; overflow-x:hidden; }
     .panels{ min-width:0; max-width:100%; }
     .panel{ min-width:0; max-width:100%; overflow:hidden; }
-    /* '오늘의 업무' 항목 제목이 잘리지 않고 줄바꿈 되게 */
-    .urgentrow{ flex-wrap:wrap; }
-    .urgentrow .title{ white-space:normal; word-break:break-word; overflow:visible; text-overflow:clip; }
+    /* '오늘의 업무' 항목: 한 줄에 다 보이게(제목은 …로 줄임, 담당자·상태는 항상 표시) */
+    .urgentrow{ flex-wrap:nowrap; gap:8px; padding:9px 2px; }
+    .urgentrow .title{ flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .urgentrow .who{ flex-shrink:0; width:auto; max-width:70px; }
+    .urgentrow .statuspill{ flex-shrink:0; }
+    .panel-head{ flex-wrap:wrap; }
+    .panel-head .title{ min-width:0; }
     /* '업무 진행률' 도넛+범례가 좁은 화면에서 줄바꿈 되게 */
     .donut-wrap{ flex-wrap:wrap; gap:12px; }
     /* 표는 카드 안에서만 좌우 스크롤(페이지 전체가 넓어지지 않게) */
