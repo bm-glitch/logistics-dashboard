@@ -1,3 +1,13 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1577cc">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="WISLAND">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
@@ -558,6 +568,30 @@
 
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+  /* ===== 모바일(폰) 최적화 — 사이드바를 상단 가로 메뉴로, 입력창 확대 방지 ===== */
+  @media (max-width: 820px){
+    .app{ flex-direction: column; }
+    .sidebar{
+      width:100%; height:auto; position:sticky; top:0; z-index:30;
+      flex-direction:row; align-items:center; gap:8px;
+      padding:8px 10px; overflow-x:auto;
+    }
+    .brand{ padding:4px 6px; flex-shrink:0; }
+    .brand .name{ font-size:14px; white-space:nowrap; }
+    nav.navlist{ flex-direction:row; gap:6px; margin-top:0; flex:1; overflow-x:auto; }
+    .navitem{ width:auto; white-space:nowrap; padding:8px 12px; }
+    .navitem .badge{ margin-left:6px; }
+    .navsep{ display:none; }
+    .sidebar-foot{ display:none; }
+    .topbar{ padding:12px 14px; gap:10px; }
+    .searchbox{ max-width:none; }
+    .formpage{ gap:14px; }
+    /* iOS: 입력창 폰트 16px 미만이면 포커스 시 화면이 확대돼요 → 16px로 고정 */
+    input[type="text"], input[type="number"], input[type="date"], input[type="tel"], textarea, select{ font-size:16px; }
+    /* 모바일: 재고검색을 상품정보 위로 올렸을 때 결과 목록이 화면을 다 먹지 않게 */
+    #stockSearchResults{ max-height:46vh; }
+  }
 </style>
 
 <div class="app">
@@ -915,7 +949,7 @@
       <div class="howto">
         <strong>사용법</strong> — 슬랙으로 들어온 출고 요청은 <strong>요청서 작성</strong>에서 직접 입력하거나, 내용을 채팅창에 붙여넣어 주세요.
         요청서로 등록한 건은 이 브라우저에 저장되고 <span class="local-tag">로컬</span> 표시가 붙어요. 대장부 본문에 고정으로 남기려면 채팅으로 말씀해 주세요.
-        판매처는 옵티마 약국 · 오프뷰티 · 올리브 · 기타 중에서 여러 곳을 함께 체크할 수 있고, 기타를 고르면 판매처 이름을 적는 칸이 열려요.
+        판매처는 옵티마 약국 · 오프뷰티 · 올리브영 · 기타 중에서 여러 곳을 함께 체크할 수 있고, 기타를 고르면 판매처 이름을 적는 칸이 열려요.
         표의 행을 클릭하면 상품 목록·수령 정보·요청내용 전체를 볼 수 있고, <strong>슬랙용 텍스트 복사</strong>로 그대로 회신할 수 있어요.
         상품·수량·출고 희망일 중 빠진 정보가 있으면 <span class="missing-tag">정보 확인 필요</span> 표시가 자동으로 붙어요.
       </div>
@@ -1159,7 +1193,7 @@
   }
   const STATUS_LABEL = { pending: "대기", in_progress: "진행중", done: "완료", cancelled: "취소" };
   const BILLING_LABEL = { paid: "유상", free: "무상" };
-  const CHANNELS = ["옵티마 약국", "오프뷰티", "올리브", "기타"];
+  const CHANNELS = ["옵티마 약국", "오프뷰티", "올리브영", "기타"];
 
   function channelText(r) {
     if (!r.channels.length) return "";
@@ -2715,5 +2749,40 @@
       mode = cur === "dark" ? "light" : "dark";
       root.setAttribute("data-theme", mode);
     });
+  })();
+</script>
+<script>
+  // PWA: 서비스워커 등록 (홈 화면 설치형 앱 + 오프라인 최소 지원)
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('sw.js').catch(function(){});
+    });
+  }
+
+  // 모바일에서는 '실시간 재고 검색' 패널을 상품정보 바로 위로 옮깁니다.
+  // (데스크톱에서는 원래대로 폼 오른쪽 사이드바로 둡니다.)
+  (function(){
+    var mq = window.matchMedia('(max-width: 820px)');
+    var panel = document.querySelector('.stockpanel');
+    var formpage = document.getElementById('formSection');
+    var prows = document.getElementById('productRows');
+    var prodCard = prows ? prows.closest('.fcard') : null;
+    if (!panel || !formpage || !prodCard) return;
+    function place(){
+      if (mq.matches){
+        // 모바일: 상품정보 카드 바로 앞에 삽입
+        if (prodCard.previousElementSibling !== panel){
+          prodCard.parentNode.insertBefore(panel, prodCard);
+        }
+      } else {
+        // 데스크톱: 폼 옆(사이드바) — formpage의 마지막으로 복귀
+        if (formpage.lastElementChild !== panel){
+          formpage.appendChild(panel);
+        }
+      }
+    }
+    place();
+    if (mq.addEventListener) mq.addEventListener('change', place);
+    else if (mq.addListener) mq.addListener(place);
   })();
 </script>
