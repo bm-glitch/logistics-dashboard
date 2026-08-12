@@ -265,6 +265,7 @@
   .stat.total .badge-icon { background: var(--accent); }
   .stat.done .badge-icon { background: var(--good); }
   .stat.progress .badge-icon { background: var(--warn); }
+  .stat.pending .badge-icon { background: var(--accent); }
   .stat.overdue .badge-icon { background: var(--danger); }
   .stat.missing .badge-icon { background: var(--info); }
   .stat .label { font-size: 12.5px; color: var(--text-muted); margin-bottom: 3px; }
@@ -412,6 +413,9 @@
   .reqtable.hide-supply .col-recv,
   .reqtable.hide-supply .col-to,
   .reqtable.hide-supply .col-track { display: none; }
+  /* 기본 목록 간소화 — 상세 정보(요청일자·판매처·가용재고·구분·수령자·수령처·완료일시)는
+     행을 펼쳤을 때 상세보기에서 확인하고, 목록에서는 숨겨서 오른쪽 잘림을 없앱니다. */
+  .reqtable .col-extra { display: none; }
 
   table.reqtable td.num { text-align: right; }
   table.reqtable th.num { text-align: right; }
@@ -718,6 +722,10 @@
           <div class="badge-icon"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></div>
           <div><div class="label">진행중</div><div class="value num" id="statProgress">0<span class="unit">건</span></div><div class="sub num" id="statProgressPct">0%</div></div>
         </div>
+        <div class="stat pending">
+          <div class="badge-icon"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4"/><path d="M12 12h3"/></svg></div>
+          <div><div class="label">대기</div><div class="value num" id="statPending">0<span class="unit">건</span></div><div class="sub num" id="statPendingPct">0%</div></div>
+        </div>
         <div class="stat overdue">
           <div class="badge-icon"><svg class="icon" viewBox="0 0 24 24"><path d="M12 9v4"/><path d="M10.3 3.9 2.7 17a1.5 1.5 0 0 0 1.3 2.2h16a1.5 1.5 0 0 0 1.3-2.2L13.7 3.9a1.5 1.5 0 0 0-2.6 0Z"/><circle cx="12" cy="16.3" r="0.6" fill="currentColor" stroke="none"/></svg></div>
           <div><div class="label">기한 초과</div><div class="value num" id="statOverdue">0<span class="unit">건</span></div><div class="sub">즉시 확인 필요</div></div>
@@ -888,6 +896,21 @@
           </div>
         </div>
 
+        <div class="fcard">
+          <div class="fsec-head">
+            <span class="t">📎 첨부파일 (선택)</span>
+            <span class="hint">특이사항·참고자료·원본 파일 등, 물류팀이 확인할 파일을 올려요</span>
+          </div>
+          <div class="fsec-body">
+            <input id="fAttachFiles" type="file" multiple>
+            <div class="hint" style="margin-top:8px;">
+              여러 개 올릴 수 있어요. 등록하면 물류팀이 대장부 상세보기와 물류대장에서 파일을 열어볼 수 있어요.
+              위에서 발주서를 올려 자동채우기를 했다면, 그 발주서 원본도 함께 첨부돼요.
+            </div>
+            <div id="fAttachList" style="margin-top:8px;font-size:13px;color:var(--text-muted);"></div>
+          </div>
+        </div>
+
         <div class="formactions">
           <div class="spacer">
             <button type="button" class="btn ghost" id="resetFormBtn">초기화</button>
@@ -940,6 +963,9 @@
           </div>
           <select class="selectfilter" id="assigneeFilter"><option value="">담당자 전체</option></select>
           <select class="selectfilter" id="channelFilter"><option value="">판매처 전체</option></select>
+          <button type="button" class="btn ghost" id="bulkDeleteBtn" title="왼쪽 체크박스로 고른 요청들을 한 번에 삭제(취소)해요" disabled style="opacity:.5;cursor:not-allowed;border-color:var(--danger,#d9534f);color:var(--danger,#d9534f);">
+            🗑 선택 삭제 <span id="bulkDelCount" style="font-variant-numeric:tabular-nums;">0</span>
+          </button>
           <div class="chipfilters" id="teamChips"></div>
         </div>
         <div class="tablescroll">
@@ -948,21 +974,21 @@
               <tr>
                 <th style="width:34px;"><input type="checkbox" id="selectAll" title="이 목록 전체 선택" style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer;vertical-align:middle;"></th>
                 <th>요청번호</th>
-                <th>요청일자</th>
+                <th class="col-extra">요청일자</th>
                 <th>요청팀</th>
                 <th>요청자</th>
                 <th>담당자</th>
-                <th>판매처</th>
+                <th class="col-extra">판매처</th>
                 <th>상품</th>
                 <th class="num">수량</th>
-                <th class="num">가용재고</th>
-                <th>구분</th>
+                <th class="num col-extra">가용재고</th>
+                <th class="col-extra">구분</th>
                 <th class="col-due"><span class="dueLbl">출고 희망일</span></th>
-                <th class="col-recv">수령자</th>
-                <th class="col-to">수령처</th>
+                <th class="col-recv col-extra">수령자</th>
+                <th class="col-to col-extra">수령처</th>
                 <th>상태</th>
                 <th class="col-track">송장</th>
-                <th>완료일시</th>
+                <th class="col-extra">완료일시</th>
                 <th>관리</th>
               </tr>
             </thead>
@@ -1219,6 +1245,10 @@
   }
   const STATUS_LABEL = { pending: "대기", in_progress: "진행중", done: "완료", cancelled: "취소" };
   const BILLING_LABEL = { paid: "유상", free: "무상" };
+  // 안전재고 상태 전환용: 화면 상태(영문) → 서버가 받는 한글 상태 / 다음 단계 안내
+  const STATUS_KO = { pending: "대기", in_progress: "진행중", done: "완료" };
+  const SAFETY_NEXT = { pending: "진행중", in_progress: "완료", done: "대기" };       // 눌렀을 때 넘어갈 상태(한글)
+  const SAFETY_NEXT_LABEL = { pending: "진행중으로", in_progress: "완료로", done: "대기로" }; // 버튼에 보일 글자
   const CHANNELS = ["옵티마 약국", "오프뷰티", "올리브영", "기타"];
 
   function channelText(r) {
@@ -1247,6 +1277,16 @@
       btn.disabled = none;
       btn.style.opacity = none ? ".5" : "1";
       btn.style.cursor = none ? "not-allowed" : "pointer";
+    }
+    // '선택 삭제' 버튼도 선택 개수에 맞춰 켜고 끕니다
+    const delBtn = document.getElementById("bulkDeleteBtn");
+    const delCountEl = document.getElementById("bulkDelCount");
+    if (delCountEl) delCountEl.textContent = selected.size;
+    if (delBtn) {
+      const none = selected.size === 0;
+      delBtn.disabled = none;
+      delBtn.style.opacity = none ? ".5" : "1";
+      delBtn.style.cursor = none ? "not-allowed" : "pointer";
     }
     const all = document.getElementById("selectAll");
     if (all) {
@@ -1291,6 +1331,8 @@
     document.getElementById("statDonePct").textContent = pct(c.done) + "%";
     document.getElementById("statProgress").innerHTML = c.progress + '<span class="unit">건</span>';
     document.getElementById("statProgressPct").textContent = pct(c.progress) + "%";
+    document.getElementById("statPending").innerHTML = c.pending + '<span class="unit">건</span>';
+    document.getElementById("statPendingPct").textContent = pct(c.pending) + "%";
     document.getElementById("statOverdue").innerHTML = c.overdue + '<span class="unit">건</span>';
     document.getElementById("statMissing").innerHTML = c.missing + '<span class="unit">건</span>';
 
@@ -1479,7 +1521,166 @@
         <div class="dcard-title">🧾 송장 정보</div>
         ${trackingBoxHtml(r)}
       </div>`}
+
+      <div class="dcard pad">
+        <div class="dcard-title">📎 첨부파일</div>
+        <div class="attach-list" data-attach-list="${esc(r.requestId)}"><span class="v empty" style="font-size:13px;color:var(--text-muted);">불러오는 중…</span></div>
+      </div>
+
+      <div class="dcard pad">
+        <div class="dcard-title">🕘 변경 이력</div>
+        <div class="history-list" data-history-list="${esc(r.requestId)}"><span class="v empty" style="font-size:13px;color:var(--text-muted);">불러오는 중…</span></div>
+      </div>
     </div>`;
+  }
+
+  // 변경 이력에서 비교할 필드 라벨
+  const HIST_FIELD_LABELS = { team:"요청팀", requester:"요청자", assignee:"담당자", itemName:"상품",
+    optionValue:"옵션", quantity:"수량", wantDate:"희망일", receivePlace:"수령처", note:"요청내용",
+    channels:"판매처", productsJson:"상품목록", receiverName:"수령자", receiverPhone:"연락처",
+    receiverAddress:"주소", receiverMessage:"배송메세지", billingType:"구분", status:"상태" };
+
+  function diffChangedFields(beforeJson, afterJson) {
+    let b = {}, a = {};
+    try { b = JSON.parse(beforeJson || "{}"); } catch (e) {}
+    try { a = JSON.parse(afterJson || "{}"); } catch (e) {}
+    const changed = [];
+    Object.keys(HIST_FIELD_LABELS).forEach(k => {
+      const bv = b[k] == null ? "" : String(b[k]);
+      const av = a[k] == null ? "" : String(a[k]);
+      if (bv !== av) changed.push(HIST_FIELD_LABELS[k]);
+    });
+    return changed;
+  }
+
+  function renderHistory(list) {
+    if (!Array.isArray(list) || !list.length) {
+      return `<span style="font-size:13px;color:var(--text-muted);">아직 변경 이력이 없어요.</span>`;
+    }
+    return list.map(h => {
+      const isCancel = h.action === "취소";
+      const badge = isCancel
+        ? `<span style="background:var(--danger);color:#fff;border-radius:5px;padding:1px 7px;font-size:11px;font-weight:700;">취소</span>`
+        : `<span style="background:var(--warn);color:#fff;border-radius:5px;padding:1px 7px;font-size:11px;font-weight:700;">수정</span>`;
+      let detail;
+      if (isCancel) {
+        detail = "요청을 취소함";
+      } else {
+        const ch = diffChangedFields(h.beforeJson, h.afterJson);
+        detail = ch.length ? ("바뀐 항목: " + ch.join(", ")) : "내용 저장";
+      }
+      return `<div style="padding:8px 0;border-bottom:1px solid var(--border);">
+        <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;">
+          ${badge}
+          <b style="color:var(--text);">${esc(h.actor) || "(미입력)"}</b>
+          <span style="color:var(--text-muted);">${esc(h.changedAt)}</span>
+        </div>
+        <div style="font-size:12.5px;color:var(--text-muted);margin-top:3px;">${esc(detail)}</div>
+        <div style="font-size:12.5px;color:var(--text);margin-top:2px;">사유: ${esc(h.reason) || "-"}</div>
+      </div>`;
+    }).join("");
+  }
+
+  /** 상세보기의 변경 이력을 서버에서 불러옵니다. (행 펼칠 때 1회) */
+  async function loadHistoryInto(sr) {
+    const box = document.querySelector(`[data-history-list="${CSS.escape(sr)}"]`);
+    if (!box || box.dataset.loaded === "1") return;
+    box.dataset.loaded = "1";
+    try {
+      const res = await fetch(API_CREATE + "/" + encodeURIComponent(sr) + "/history");
+      if (!res.ok) throw new Error("서버 응답 " + res.status);
+      box.innerHTML = renderHistory(await res.json());
+    } catch (e) {
+      box.dataset.loaded = "";
+      box.innerHTML = `<span style="font-size:13px;color:var(--danger);">이력을 불러오지 못했어요. 잠시 후 다시 열어 주세요.</span>`;
+    }
+  }
+
+  /** 수정·취소 시 변경자 이름 + 사유를 입력받는 작은 창. {actor, reason} 또는 취소 시 null 반환. */
+  function askChange(actionLabel) {
+    return new Promise((resolve) => {
+      let ov = document.getElementById("changeModal");
+      if (!ov) {
+        ov = document.createElement("div");
+        ov.id = "changeModal";
+        ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;";
+        ov.innerHTML = `
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:400px;width:100%;padding:20px;box-shadow:0 12px 44px rgba(0,0,0,.22);">
+            <div id="cmTitle" style="font-size:16px;font-weight:700;margin-bottom:4px;color:var(--text);"></div>
+            <div style="font-size:13px;color:var(--text-muted);margin-bottom:14px;line-height:1.5;">여러 팀이 함께 쓰는 대장부라, 변경 기록을 남겨요. 두 칸 모두 입력해 주세요.</div>
+            <label style="font-size:12px;font-weight:600;color:var(--text-muted);">변경자 이름 <span style="color:var(--danger);">*</span></label>
+            <input id="cmActor" type="text" placeholder="예: 신혜인" style="width:100%;margin:4px 0 12px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface-alt,#fff);color:var(--text);box-sizing:border-box;">
+            <label style="font-size:12px;font-weight:600;color:var(--text-muted);">사유 <span style="color:var(--danger);">*</span></label>
+            <input id="cmReason" type="text" placeholder="예: 수량 정정 / 수령지 변경" style="width:100%;margin:4px 0 4px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface-alt,#fff);color:var(--text);box-sizing:border-box;">
+            <div id="cmErr" style="font-size:12px;color:var(--danger);min-height:16px;margin-bottom:8px;"></div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+              <button id="cmCancel" type="button" class="btn ghost">닫기</button>
+              <button id="cmOk" type="button" class="btn primary">확인</button>
+            </div>
+          </div>`;
+        document.body.appendChild(ov);
+      }
+      const title = ov.querySelector("#cmTitle");
+      const actor = ov.querySelector("#cmActor");
+      const reason = ov.querySelector("#cmReason");
+      const err = ov.querySelector("#cmErr");
+      title.textContent = actionLabel + " — 변경 기록 남기기";
+      actor.value = ""; reason.value = ""; err.textContent = "";
+      ov.style.display = "flex";
+      setTimeout(() => actor.focus(), 30);
+
+      const cleanup = () => {
+        okBtn.removeEventListener("click", onOk);
+        cancelBtn.removeEventListener("click", onCancel);
+        ov.removeEventListener("keydown", onKey);
+      };
+      const close = (result) => { ov.style.display = "none"; cleanup(); resolve(result); };
+      const onOk = () => {
+        const a = actor.value.trim(), r = reason.value.trim();
+        if (!a) { err.textContent = "변경자 이름을 입력해 주세요."; actor.focus(); return; }
+        if (!r) { err.textContent = "사유를 입력해 주세요."; reason.focus(); return; }
+        close({ actor: a, reason: r });
+      };
+      const onCancel = () => close(null);
+      const onKey = (e) => {
+        if (e.key === "Enter") { e.preventDefault(); onOk(); }
+        else if (e.key === "Escape") { e.preventDefault(); onCancel(); }
+      };
+      const okBtn = ov.querySelector("#cmOk");
+      const cancelBtn = ov.querySelector("#cmCancel");
+      okBtn.addEventListener("click", onOk);
+      cancelBtn.addEventListener("click", onCancel);
+      ov.addEventListener("keydown", onKey);
+    });
+  }
+
+  /** 상세보기의 첨부파일 영역을 서버에서 불러와 다운로드 링크로 채웁니다. (행을 펼칠 때 1회 호출) */
+  async function loadAttachmentsInto(sr) {
+    const box = document.querySelector(`[data-attach-list="${CSS.escape(sr)}"]`);
+    if (!box || box.dataset.loaded === "1") return;
+    box.dataset.loaded = "1";
+    try {
+      const res = await fetch(API_BASE + "/api/attachments/by-request/" + encodeURIComponent(sr));
+      if (!res.ok) throw new Error("서버 응답 " + res.status);
+      const list = await res.json();
+      box.innerHTML = renderAttachLinks(list);
+    } catch (e) {
+      box.dataset.loaded = "";  // 실패하면 다음에 다시 시도할 수 있게
+      box.innerHTML = `<span style="font-size:13px;color:var(--danger);">첨부를 불러오지 못했어요. 잠시 후 다시 열어 주세요.</span>`;
+    }
+  }
+
+  /** 첨부 메타 목록 → 다운로드 링크 HTML */
+  function renderAttachLinks(list) {
+    if (!Array.isArray(list) || !list.length) {
+      return `<span style="font-size:13px;color:var(--text-muted);">첨부된 파일이 없어요.</span>`;
+    }
+    return list.map(a => {
+      const kb = a.byteSize ? Math.max(1, Math.round(a.byteSize / 1024)) : 0;
+      const size = kb ? ` <span style="color:var(--text-muted);">(${kb.toLocaleString()} KB)</span>` : "";
+      const url = API_BASE + "/api/attachments/" + encodeURIComponent(a.id) + "/download";
+      return `<div style="padding:4px 0;">📄 <a href="${url}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline;">${esc(a.fileName) || "첨부파일"}</a>${size}</div>`;
+    }).join("");
   }
 
   /** 송장 정보 영역 — 세 가지 상태: 미연결 / 연결됨(대기중) / 등록완료 */
@@ -1592,6 +1793,12 @@
       rows = rows.filter(r => hay(r).includes(t));
     }
     rows.sort((a, b) => {
+      // 1) 완료건은 항상 아래로, 아직 처리 안 끝난 건(대기·진행중)을 위로
+      const aDone = a.status === "done", bDone = b.status === "done";
+      if (aDone !== bDone) return aDone ? 1 : -1;
+      // 2) 완료건끼리는 최근에 완료한 것부터
+      if (aDone && bDone) return (b.completedAt || "").localeCompare(a.completedAt || "");
+      // 3) 미완료건끼리는 지연 → 정보부족 → 출고희망일 순
       if (isOverdue(a) !== isOverdue(b)) return isOverdue(a) ? -1 : 1;
       if (hasMissingInfo(a) !== hasMissingInfo(b)) return hasMissingInfo(a) ? -1 : 1;
       return (a.desiredDate || "9999").localeCompare(b.desiredDate || "9999");
@@ -1614,23 +1821,24 @@
         <td class="num">
           <span class="expandmark"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span>${esc(r.requestId) || "-"}${r.source === "local" ? '<span class="local-tag" title="이 브라우저에만 저장된 항목이에요">로컬</span>' : ""}
         </td>
-        <td class="num">${esc(r.requestDate) || "-"}</td>
+        <td class="num col-extra">${esc(r.requestDate) || "-"}</td>
         <td>${esc(r.team) || "-"}</td>
         <td>${esc(r.requester) || "-"}</td>
         <td>${esc(r.assignee) || "-"}</td>
-        <td class="msg" title="${esc(channelText(r))}">${esc(channelText(r)) || "-"}</td>
+        <td class="msg col-extra" title="${esc(channelText(r))}">${esc(channelText(r)) || "-"}</td>
         <td class="msg" title="${esc(summary)}">${esc(summary) || "-"}${showMissing ? '<span class="missing-tag">정보 확인 필요</span>' : ""}</td>
         <td class="num">${qty ?? "-"}</td>
-        <td class="num" data-stock-code="${esc((r.products[0] && r.products[0].code) || "")}">${stockCellText(r)}</td>
-        <td>${r.billing ? `<span class="billpill ${r.billing}">${BILLING_LABEL[r.billing]}</span>` : "-"}</td>
+        <td class="num col-extra" data-stock-code="${esc((r.products[0] && r.products[0].code) || "")}">${stockCellText(r)}</td>
+        <td class="col-extra">${r.billing ? `<span class="billpill ${r.billing}">${BILLING_LABEL[r.billing]}</span>` : "-"}</td>
         <td class="duecell col-due${isOverdue(r) ? " overdue" : isSoon(r) ? " soon" : ""}">${(isOverdue(r) || isSoon(r)) ? "🔥 " : ""}${fmtDue(r)}</td>
-        <td class="col-recv">${esc(r.receiver.name) || "-"}</td>
-        <td class="msg col-to" title="${esc(r.receiver.address)}">${esc(r.receiver.address) || "-"}</td>
+        <td class="col-recv col-extra">${esc(r.receiver.name) || "-"}</td>
+        <td class="msg col-to col-extra" title="${esc(r.receiver.address)}">${esc(r.receiver.address) || "-"}</td>
         <td><span class="statuspill ${r.status}">${STATUS_LABEL[r.status]}</span></td>
         <td class="num col-track">${r.trackingNo ? `<span class="trackbadge" title="${esc(r.carrier || "")}">🚚 ${esc(r.trackingNo)}</span>` : "-"}</td>
-        <td class="num">${esc(r.completedAt) || "-"}</td>
+        <td class="num col-extra">${esc(r.completedAt) || "-"}</td>
         <td class="actioncell">
           ${r.status === "cancelled" ? "-" : `
+            ${activeView === "safety" ? `<button type="button" class="btn small safetyStatusBtn" data-id="${esc(r.requestId)}" data-status="${r.status}" title="누르면 다음 단계로 넘어가요 (대기 → 진행중 → 완료)">${SAFETY_NEXT_LABEL[r.status] || "진행중으로"}</button>` : ""}
             <button type="button" class="btn ghost small rowEditBtn" data-id="${esc(r.requestId)}">수정</button>
             <button type="button" class="btn ghost small rowCancelBtn" data-id="${esc(r.requestId)}">취소</button>
           `}
@@ -1650,6 +1858,7 @@
         tr.classList.toggle("open", !open);
         tr.setAttribute("aria-expanded", String(!open));
         if (drow) drow.style.display = open ? "none" : "";
+        if (!open) { loadAttachmentsInto(id); loadHistoryInto(id); }   // 펼칠 때 첨부파일·변경이력 불러오기
       };
       tr.addEventListener("click", (e) => { if (e.target.closest("button, input, a")) return; toggle(); });
       tr.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
@@ -1917,6 +2126,39 @@
     };
   }
 
+  // 요청서 제출 시 함께 올릴 첨부파일. 발주서 자동채우기로 올린 원본도 여기에 담아 함께 첨부합니다.
+  let orderFilesForAttach = [];
+
+  /** 첨부파일 칸(fAttachFiles)의 파일 + 발주서 원본을 모아 서버에 업로드합니다. */
+  async function uploadAttachments(sr) {
+    if (!sr) return { ok: true, count: 0 };
+    const input = document.getElementById("fAttachFiles");
+    const picked = (input && input.files) ? Array.from(input.files) : [];
+    const combined = picked.concat(orderFilesForAttach || []);
+    // 같은 파일(이름+크기) 중복 제거
+    const seen = new Set();
+    const files = combined.filter(f => {
+      const key = f.name + "|" + f.size;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    if (!files.length) return { ok: true, count: 0 };
+
+    const fd = new FormData();
+    files.forEach(f => fd.append("files", f));
+    try {
+      const res = await fetch(API_BASE + "/api/attachments/" + encodeURIComponent(sr), {
+        method: "POST",
+        body: fd,   // multipart/form-data — Content-Type은 브라우저가 자동 지정
+      });
+      if (!res.ok) throw new Error("서버 응답 " + res.status);
+      return { ok: true, count: files.length };
+    } catch (e) {
+      return { ok: false, count: files.length, error: e.message || "연결 오류" };
+    }
+  }
+
   async function submitForm() {
     clearErrors();
     const f = readForm();
@@ -1996,11 +2238,20 @@
     const submitBtn = document.getElementById("submitFormBtn");
     const btnLabel = submitBtn ? submitBtn.textContent : "";
     const isEdit = !!editingSrNo;
+
+    // 수정일 때는 변경자·사유를 입력받아 변경 이력에 남깁니다.
+    let changeQS = "";
+    if (isEdit) {
+      const info = await askChange(editingSrNo + " 요청 수정");
+      if (!info) return;   // 사용자가 닫음 → 폼 그대로 유지
+      changeQS = "?changedBy=" + encodeURIComponent(info.actor) + "&changeReason=" + encodeURIComponent(info.reason);
+    }
+
     if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = isEdit ? "수정 저장 중..." : "저장 중..."; }
 
     let created;
     try {
-      const url = isEdit ? (API_CREATE + "/" + encodeURIComponent(editingSrNo)) : API_CREATE;
+      const url = isEdit ? (API_CREATE + "/" + encodeURIComponent(editingSrNo) + changeQS) : API_CREATE;
       const res = await fetch(url, {
         method: isEdit ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -2038,8 +2289,15 @@
       } catch (e) { /* 유형 저장 실패해도 접수 자체는 완료됨 */ }
     }
 
+    // 첨부파일 업로드 — 요청서가 만들어진 뒤(sr 확보 후)에 올립니다.
+    const attachRes = await uploadAttachments(entry.requestId);
+
     await fetchFromServer();
     resetForm(true);
+
+    if (attachRes && attachRes.count > 0 && !attachRes.ok) {
+      alert("요청서는 정상 등록됐어요. 다만 첨부파일 업로드에 실패했어요.\n네트워크 상태를 확인하고, 잠시 후 대장부에서 다시 시도해 주세요.");
+    }
 
     if (wasEdit) {
       showBanner(`<span>${esc(entry.requestId)} 요청서를 수정했어요.</span>`, "");
@@ -2089,6 +2347,11 @@
     productSeq = 0;
     addProductRow(false);
     if (typeof setReqType === "function") setReqType("출고요청");
+    // 첨부파일 관련 상태 초기화
+    orderFilesForAttach = [];
+    const af = document.getElementById("fAttachFiles"); if (af) af.value = "";
+    const al = document.getElementById("fAttachList"); if (al) al.textContent = "";
+    const of = document.getElementById("fOrderFile"); if (of) of.value = "";
     if (!keepBanner) showBanner("");
   }
 
@@ -2152,15 +2415,34 @@
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  /** 대장부 표의 '취소' 버튼 */
+  /** 대장부 표의 '취소' 버튼 — 변경자 이름·사유를 입력받아 변경 이력에 남깁니다. */
   async function cancelRequest(srNo) {
-    if (!confirm(`${srNo} 요청을 취소할래요? 취소해도 기록은 남고, 목록에서 '취소' 상태로 표시돼요.`)) return;
+    const info = await askChange(srNo + " 요청 취소");
+    if (!info) return;   // 사용자가 닫음
+    const qs = "?changedBy=" + encodeURIComponent(info.actor) + "&changeReason=" + encodeURIComponent(info.reason);
     try {
-      const res = await fetch(API_CREATE + "/" + encodeURIComponent(srNo) + "/cancel", { method: "PATCH" });
+      const res = await fetch(API_CREATE + "/" + encodeURIComponent(srNo) + "/cancel" + qs, { method: "PATCH" });
       if (!res.ok) throw new Error("서버 응답 " + res.status);
       await fetchFromServer();
     } catch (e) {
       alert(srNo + " 취소에 실패했어요: " + (e.message || "연결 오류"));
+    }
+  }
+
+  /** 안전재고 화면의 상태 전환 버튼 — 대기 → 진행중 → 완료 → (다시)대기 순으로 넘어갑니다.
+   *  물류대장(myorder)과 같은 /status API를 그대로 사용해서 백엔드 수정 없이 상태를 바꿔요. */
+  async function setSafetyStatus(srNo, curStatus) {
+    const nextKo = SAFETY_NEXT[curStatus] || "진행중";   // 서버는 한글 상태를 받습니다
+    try {
+      const res = await fetch(API_CREATE + "/" + encodeURIComponent(srNo) + "/status", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextKo }),
+      });
+      if (!res.ok) throw new Error("서버 응답 " + res.status);
+      await fetchFromServer();
+    } catch (e) {
+      alert(srNo + " 상태 변경에 실패했어요: " + (e.message || "연결 오류"));
     }
   }
 
@@ -2191,6 +2473,9 @@
     }
     const cancelBtn = e.target.closest(".rowCancelBtn");
     if (cancelBtn) { cancelRequest(cancelBtn.dataset.id); return; }
+
+    const safetyBtn = e.target.closest(".safetyStatusBtn");
+    if (safetyBtn) { setSafetyStatus(safetyBtn.dataset.id, safetyBtn.dataset.status); return; }
 
     const linkBtn = e.target.closest(".linkOrderBtn");
     if (linkBtn) {
@@ -2332,19 +2617,21 @@
         const stockText = has ? (p.available != null ? `가용 ${p.available}` : `재고 ${p.stock}`) : "조회중…";
         const val = p.available != null ? p.available : p.stock;
         const stockColor = has ? ((val <= 0) ? 'var(--danger)' : 'var(--accent)') : 'var(--text-muted)';
-        return `<div class="stockResultRow" data-code="${esc(p.productId)}" data-name="${esc(p.name)}"
-             style="padding:9px 16px;border-bottom:1px solid var(--border);cursor:pointer;">
-          <div style="font-weight:600;">${esc(p.name)}</div>
-          <div style="display:flex;justify-content:space-between;color:var(--text-muted);font-size:12px;margin-top:2px;">
+        const optText = (p.option != null && String(p.option).trim()) ? String(p.option).trim() : "";
+        return `<div class="stockResultRow" data-code="${esc(p.productId)}" data-name="${esc(p.name)}" data-option="${esc(optText)}"
+             style="padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;">
+          <div style="font-weight:600;line-height:1.45;overflow-wrap:anywhere;word-break:break-word;">${esc(p.name)}</div>
+          ${optText ? `<div style="font-size:12px;color:var(--text-muted);margin-top:2px;overflow-wrap:anywhere;">옵션: ${esc(optText)}</div>` : ""}
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;color:var(--text-muted);font-size:12px;margin-top:4px;">
             <span>${esc(p.productId)}</span>
-            <span class="stkVal" data-code="${esc(p.productId)}" style="color:${stockColor};font-weight:600;">${stockText}</span>
+            <span class="stkVal" data-code="${esc(p.productId)}" style="margin-left:auto;color:${stockColor};font-weight:700;white-space:nowrap;">${stockText}</span>
           </div>
         </div>`;
       }).join("");
 
       results.querySelectorAll(".stockResultRow").forEach(row => {
         row.addEventListener("click", () => {
-          const code = row.dataset.code, name = row.dataset.name;
+          const code = row.dataset.code, name = row.dataset.name, option = row.dataset.option || "";
           // 마지막 상품 줄이 비어 있으면 거기에 채우고, 아니면 새 줄을 추가합니다.
           const rows = document.querySelectorAll("#productRows .prow");
           let target = rows[rows.length - 1];
@@ -2354,6 +2641,8 @@
           }
           target.querySelector(".pCode").value = code;
           target.querySelector(".pName").value = name;
+          // 옵션이 있으면 옵션란에 자동 분리 입력, 없으면 '없음'으로 채워 별도 입력 안 해도 되게.
+          target.querySelector(".pOpt").value = option || "없음";
           updateCodeWarn(target);
           target.querySelector(".pQty").focus();
         });
@@ -2426,6 +2715,35 @@
     if (!selected.size) { alert("먼저 왼쪽 체크박스로 주문건을 선택해 주세요."); return; }
     const rows = DATA.filter(r => selected.has(r.requestId));
     exportRowsToExcel(rows, "출고요청_선택");
+  });
+
+  /** '선택 삭제' — 체크한 요청들을 한 번에 삭제(취소) 처리합니다.
+   *  서버에는 '취소' 상태로 남아 기록은 보존되고, 목록에서는 빠져요. (개별 '취소'와 동일 처리) */
+  document.getElementById("bulkDeleteBtn").addEventListener("click", async () => {
+    const ids = [...selected];
+    if (!ids.length) { alert("먼저 왼쪽 체크박스로 삭제할 요청을 골라 주세요."); return; }
+    if (!confirm(`선택한 ${ids.length}건을 삭제할까요?\n삭제해도 기록은 '취소' 상태로 남고, 목록에서는 빠져요.`)) return;
+
+    const delBtn = document.getElementById("bulkDeleteBtn");
+    delBtn.disabled = true;
+    const original = delBtn.innerHTML;
+    let ok = 0; const failed = [];
+    for (const id of ids) {
+      delBtn.innerHTML = `삭제 중... (${ok + failed.length + 1}/${ids.length})`;
+      try {
+        const res = await fetch(API_CREATE + "/" + encodeURIComponent(id) + "/cancel", { method: "PATCH" });
+        if (!res.ok) throw new Error("서버 응답 " + res.status);
+        ok += 1;
+      } catch (e) { failed.push(id); }
+    }
+    selected.clear();
+    delBtn.innerHTML = original;
+    await fetchFromServer();
+    if (failed.length) {
+      alert(`${ok}건 삭제 완료.\n${failed.length}건은 실패했어요: ${failed.join(", ")}\n잠시 후 다시 시도해 주세요.`);
+    } else {
+      alert(`${ok}건을 모두 삭제했어요.`);
+    }
   });
 
   /** 헤더 '전체 선택' — 지금 목록에 보이는 주문건을 한 번에 선택/해제합니다. */
@@ -2552,8 +2870,16 @@
       products.push({ name, option: opt, qty });
     });
 
-    const first = dataRows[0];
-    const get = (colKey) => (col[colKey] >= 0 ? String(first[col[colKey]] || "").trim() : "");
+    // 수령정보·배송메세지는 '첫 번째로 값이 채워진 행' 기준으로 가져옵니다.
+    // (맨 윗줄이 비어 있고 아래 줄에만 배송메세지가 적힌 파일도 놓치지 않게 하기 위함)
+    const get = (colKey) => {
+      if (col[colKey] < 0) return "";
+      for (const row of dataRows) {
+        const v = String(row[col[colKey]] || "").trim();
+        if (v) return v;
+      }
+      return "";
+    };
     const zip = get("수령자우편번호");
     const addr = get("수령자주소");
     const receiver = {
@@ -2577,6 +2903,7 @@
 
     try {
       const files = Array.from(fileList);
+      orderFilesForAttach = files.slice();   // 발주서 원본도 요청서에 함께 첨부되도록 보관
       const parsed = [];
       for (const f of files) parsed.push(await parseOrderFile(f));
 
@@ -2615,6 +2942,14 @@
 
   document.getElementById("fOrderFile").addEventListener("change", (e) => {
     if (e.target.files.length) handleOrderFiles(e.target.files);
+  });
+
+  // 첨부파일 칸에 파일을 고르면, 고른 파일 이름을 아래에 보여줍니다.
+  document.getElementById("fAttachFiles").addEventListener("change", (e) => {
+    const el = document.getElementById("fAttachList");
+    const files = Array.from(e.target.files || []);
+    if (!files.length) { el.textContent = ""; return; }
+    el.innerHTML = "선택한 파일: " + files.map(f => `<b style="color:var(--text);">${esc(f.name)}</b>`).join(", ");
   });
 
   document.getElementById("addProductBtn").addEventListener("click", () => addProductRow(true));
