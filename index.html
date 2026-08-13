@@ -836,7 +836,29 @@
 
         <div class="fcard">
           <div class="fsec-head">
+            <span class="t">📥 여러 배송지 한 번에 등록 (다중)</span>
+            <span class="hint">배송지가 여러 곳일 때</span>
+          </div>
+          <div class="fsec-body">
+            <div class="hint" style="margin-bottom:10px;line-height:1.6;">
+              배송지가 여러 곳이면 하나씩 등록하지 말고, 아래 <b>양식</b>을 받아 채워서 올리세요.
+              한 줄이 한 주문건이 되고, <b>주문건마다 각각 별도 요청서</b>로 한 번에 등록돼요.
+              위 <b>요청팀·요청자·출고 희망일·유상/무상·판매처</b>는 공통으로 적용되고, <b>주소·송장은 주문건마다 따로</b> 관리돼요.
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+              <button type="button" class="btn ghost small" id="dlFreeTemplate">📄 무상 양식 받기</button>
+              <button type="button" class="btn ghost small" id="dlPaidTemplate">📄 유상 양식 받기</button>
+            </div>
+            <label style="font-size:12px;font-weight:600;color:var(--text-muted);">채운 양식 올리기</label>
+            <input id="fBulkFile" type="file" accept=".xls,.xlsx" style="margin-top:4px;">
+            <div id="fBulkMsg" style="margin-top:8px;font-size:13px;"></div>
+          </div>
+        </div>
+
+        <div class="fcard">
+          <div class="fsec-head">
             <span class="t">📎 발주서로 자동 채우기 (선택)</span>
+            <span class="hint">한 곳으로 여러 상품(합포장)</span>
           </div>
           <div class="fsec-body">
             <div class="hint" style="margin-bottom:8px;">
@@ -2352,6 +2374,8 @@
     const af = document.getElementById("fAttachFiles"); if (af) af.value = "";
     const al = document.getElementById("fAttachList"); if (al) al.textContent = "";
     const of = document.getElementById("fOrderFile"); if (of) of.value = "";
+    const bf = document.getElementById("fBulkFile"); if (bf) bf.value = "";
+    const bm = document.getElementById("fBulkMsg"); if (bm) bm.textContent = "";
     if (!keepBanner) showBanner("");
   }
 
@@ -2942,6 +2966,149 @@
 
   document.getElementById("fOrderFile").addEventListener("change", (e) => {
     if (e.target.files.length) handleOrderFiles(e.target.files);
+  });
+
+  // ===== 여러 배송지 한 번에 등록 (다중 업로드) =====
+  // 무상/유상 양식 컬럼. 요청자가 이 양식을 받아 채워서 올리면 각 줄이 별도 요청서가 됩니다.
+  const BULK_FREE_COLS = ["수령자이름","수령자연락처","수령자우편번호","수령자주소","배송메세지","상품명","옵션","수량","상품코드"];
+  const BULK_PAID_COLS = ["수령자이름","수령자연락처","수령자우편번호","수령자주소","배송메세지","상품명","옵션","수량","상품코드","판매가"];
+
+  /** 무상/유상 다중배송 양식(.xlsx)을 만들어 내려받습니다. (헤더 + 예시 1줄) */
+  function downloadBulkTemplate(kind) {
+    const paid = (kind === "paid");
+    const cols = paid ? BULK_PAID_COLS : BULK_FREE_COLS;
+    const example = paid
+      ? ["김수령","010-1234-5678","06236","서울 강남구 테헤란로 1, 3층","부재 시 문 앞","베이직 지압볼","색상 골드",1,"W25XX034","19000"]
+      : ["김수령","010-1234-5678","06236","서울 강남구 테헤란로 1, 3층","부재 시 문 앞","베이직 지압볼","색상 골드",1,"W25XX034"];
+    try {
+      const ws = XLSX.utils.aoa_to_sheet([cols, example]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "출고요청");
+      XLSX.writeFile(wb, (paid ? "유상" : "무상") + "_다중배송_양식.xlsx");
+    } catch (e) {
+      alert("양식을 만들지 못했어요: " + (e.message || "다시 시도해 주세요."));
+    }
+  }
+
+  /** 채운 양식 파일을 읽어, 수령자별로 묶어서 여러 개의 요청서를 한 번에 등록합니다. */
+  async function handleBulkUpload(file) {
+    const msg = document.getElementById("fBulkMsg");
+    const gv = (id) => document.getElementById(id).value.trim();
+
+    // 공통 정보(요청팀·요청자·희망일·유상무상)는 위 폼에서 한 번만 입력받습니다.
+    const team = gv("fTeam"), requester = gv("fRequester"), desiredDate = gv("fDesiredDate");
+    const bad = (t) => { msg.style.color = "var(--danger)"; msg.textContent = t; };
+    if (!team)      { bad("먼저 위에서 '요청팀'을 입력해 주세요."); return; }
+    if (!requester) { bad("먼저 위에서 '요청자'를 입력해 주세요."); return; }
+    if (!desiredDate) { bad("먼저 위에서 '출고 희망일'을 선택해 주세요."); return; }
+    if (!billingValue) { bad("먼저 위에서 '유상/무상'을 선택해 주세요."); return; }
+
+    msg.style.color = "";
+    msg.textContent = "파일 읽는 중...";
+    let orders;
+    try {
+      orders = await parseBulkFile(file);
+    } catch (e) {
+      bad("파일을 읽지 못했어요: " + (e.message || "형식을 확인해 주세요."));
+      return;
+    }
+    if (!orders.length) { bad("파일에서 주문건을 찾지 못했어요. 양식을 확인해 주세요."); return; }
+
+    if (!confirm(`${orders.length}건의 주문을 각각 별도 요청서로 등록할까요?\n(요청팀: ${team} / 요청자: ${requester} / 희망일: ${desiredDate} 공통 적용)`)) {
+      msg.textContent = ""; return;
+    }
+
+    const channels = selectedChannels();
+    const channelStr = channels
+      .map(c => (c === "기타" && gv("fChannelOther")) ? ("기타:" + gv("fChannelOther")) : c)
+      .join(",");
+    const assignee = gv("fAssignee") || null;
+    const content = gv("fContent") || null;
+
+    let ok = 0; const failed = [];
+    for (let i = 0; i < orders.length; i++) {
+      const o = orders[i];
+      msg.style.color = "";
+      msg.textContent = `등록 중... (${i + 1}/${orders.length})`;
+      const payload = {
+        requestTeam: team, requester, assignee,
+        itemName: o.products[0].name,
+        sku: o.products[0].code || null,
+        optionValue: o.products[0].option || null,
+        quantity: o.products.reduce((a, p) => a + p.qty, 0),
+        wantDate: desiredDate,
+        receivePlace: o.address || null,
+        note: content, scope: "team",
+        channels: channelStr,
+        productsJson: JSON.stringify(o.products),
+        receiverName: o.name || null,
+        receiverPhone: o.phone || null,
+        receiverAddress: o.address || null,
+        receiverMessage: o.message || null,
+        billingType: billingValue,
+      };
+      try {
+        const res = await fetch(API_CREATE, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error("서버 " + res.status);
+        ok += 1;
+      } catch (e) { failed.push(o.name || ("행 " + (i + 1))); }
+    }
+
+    await fetchFromServer();
+    if (failed.length) {
+      msg.style.color = "var(--danger)";
+      msg.textContent = `${ok}건 등록 완료, ${failed.length}건 실패: ${failed.join(", ")}. 실패 건만 다시 시도해 주세요.`;
+    } else {
+      msg.style.color = "var(--accent)";
+      msg.textContent = `✅ ${ok}건을 모두 등록했어요! '전체 요청'에서 확인하세요.`;
+    }
+    document.getElementById("fBulkFile").value = "";
+  }
+
+  /** 다중배송 양식을 읽어 수령자(이름+연락처+주소)별로 묶습니다. → [{name,phone,address,message,products:[...]}] */
+  async function parseBulkFile(file) {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: "array" });
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "" });
+    if (!rows.length) throw new Error(file.name + ": 빈 파일이에요.");
+    const header = rows[0].map(h => String(h || "").trim());
+    const find = (names) => { for (const n of names) { const i = header.findIndex(h => h === n); if (i >= 0) return i; } return -1; };
+    const col = {
+      name: find(["수령자이름","수령자 이름"]),
+      phone: find(["수령자연락처","수령자 연락처"]),
+      zip: find(["수령자우편번호","수령자 우편번호"]),
+      addr: find(["수령자주소","수령자 주소"]),
+      msg: find(["배송메세지","배송메시지","배송 메세지"]),
+      pname: find(["상품명"]),
+      popt: find(["옵션"]),
+      pqty: find(["수량"]),
+      pcode: find(["상품코드","상품 코드"]),
+    };
+    const dataRows = rows.slice(1).filter(r => r.some(v => String(v || "").trim() !== ""));
+    const get = (r, i) => (i >= 0 ? String(r[i] || "").trim() : "");
+    const groups = new Map();
+    dataRows.forEach(r => {
+      const pname = get(r, col.pname);
+      if (!pname) return;                    // 상품명 없는 줄은 건너뜀(빈 서식줄)
+      const name = get(r, col.name), phone = get(r, col.phone);
+      const zip = get(r, col.zip), addr0 = get(r, col.addr);
+      const address = zip ? `(${zip}) ${addr0}` : addr0;
+      const key = name + "|" + phone + "|" + address;
+      if (!groups.has(key)) groups.set(key, { name, phone, address, message: get(r, col.msg), products: [] });
+      let qty = parseInt(get(r, col.pqty), 10);
+      if (!Number.isFinite(qty) || qty <= 0) qty = 1;
+      groups.get(key).products.push({ code: get(r, col.pcode), name: pname, option: get(r, col.popt) || "없음", qty });
+    });
+    return [...groups.values()];
+  }
+
+  document.getElementById("dlFreeTemplate").addEventListener("click", () => downloadBulkTemplate("free"));
+  document.getElementById("dlPaidTemplate").addEventListener("click", () => downloadBulkTemplate("paid"));
+  document.getElementById("fBulkFile").addEventListener("change", (e) => {
+    if (e.target.files.length) handleBulkUpload(e.target.files[0]);
   });
 
   // 첨부파일 칸에 파일을 고르면, 고른 파일 이름을 아래에 보여줍니다.
