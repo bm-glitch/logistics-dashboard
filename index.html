@@ -417,6 +417,49 @@
      행을 펼쳤을 때 상세보기에서 확인하고, 목록에서는 숨겨서 오른쪽 잘림을 없앱니다. */
   .reqtable .col-extra { display: none; }
 
+  /* ===== 보기 전환 (목록 / 캘린더 / 칸반) ===== */
+  .viewswitch { display:inline-flex; background:var(--surface-alt,#eef1f4); border:1px solid var(--border); border-radius:9px; padding:3px; gap:3px; }
+  .viewswitch .vbtn { border:none; background:transparent; padding:6px 12px; border-radius:7px; font-size:12.5px; font-weight:700; color:var(--text-muted); cursor:pointer; white-space:nowrap; }
+  .viewswitch .vbtn.on { background:var(--surface,#fff); color:var(--accent); box-shadow:0 1px 3px rgba(0,0,0,.10); }
+
+  /* ===== 캘린더 ===== */
+  .calbar { display:flex; align-items:center; gap:12px; margin:10px 4px 12px; flex-wrap:wrap; }
+  .calbar .cnav { display:flex; align-items:center; gap:8px; }
+  .calbar .cnav button { border:1px solid var(--border); background:var(--surface); width:32px; height:32px; border-radius:8px; cursor:pointer; color:var(--text); font-size:15px; }
+  .calbar .cmon { font-size:15px; font-weight:800; min-width:110px; text-align:center; }
+  .calbar .ctoday { border:1px solid var(--border); background:var(--surface); border-radius:8px; padding:6px 12px; font-size:12.5px; font-weight:700; cursor:pointer; color:var(--text); }
+  .callegend { display:flex; gap:12px; font-size:12px; color:var(--text-muted); align-items:center; flex-wrap:wrap; margin-left:auto; }
+  .cdot { display:inline-block; width:9px; height:9px; border-radius:3px; margin-right:4px; vertical-align:-1px; }
+  .caldow { display:grid; grid-template-columns:repeat(7,1fr); border:1px solid var(--border); border-bottom:none; border-radius:10px 10px 0 0; overflow:hidden; background:var(--surface-alt,#fafbfc); }
+  .caldow div { padding:8px 10px; font-size:11.5px; font-weight:700; color:var(--text-muted); }
+  .caldow div:first-child { color:#d6473a; } .caldow div:last-child { color:#3f76d6; }
+  .calgrid { display:grid; grid-template-columns:repeat(7,1fr); border:1px solid var(--border); border-top:none; border-radius:0 0 10px 10px; overflow:hidden; }
+  .ccell { min-height:96px; border-right:1px solid var(--border); border-bottom:1px solid var(--border); padding:6px 7px; display:flex; flex-direction:column; gap:4px; background:var(--surface); }
+  .ccell:nth-child(7n) { border-right:none; }
+  .ccell.out { background:var(--surface-alt,#fafafb); }
+  .cdaynum { font-size:12px; font-weight:700; color:var(--text-muted); }
+  .ccell.ctodaycell .cdaynum { background:var(--accent); color:#fff; border-radius:50%; width:21px; height:21px; display:flex; align-items:center; justify-content:center; }
+  .cchip { font-size:11px; font-weight:700; padding:2px 7px; border-radius:6px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cchip.pending { background:var(--accent-soft); color:var(--accent); }
+  .cchip.in_progress { background:var(--warn-soft); color:var(--warn); }
+  .cchip.done { background:var(--good-soft,#e4f5ec); color:var(--good,#12925a); }
+  .cmore { font-size:10.5px; color:var(--text-muted); cursor:pointer; font-weight:600; }
+  @media (max-width:640px){ .ccell{ min-height:72px; } .cchip{ font-size:10px; padding:2px 5px; } .callegend{ margin-left:0; } }
+
+  /* ===== 칸반 ===== */
+  .kanban { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; padding:10px 2px 14px; }
+  .kcol { background:var(--surface-alt,#f6f7f9); border:1px solid var(--border); border-radius:12px; padding:10px; min-height:120px; }
+  .kcol h4 { margin:0 0 10px; font-size:13px; display:flex; align-items:center; gap:7px; }
+  .kcount { background:var(--surface); border:1px solid var(--border); border-radius:999px; padding:0 8px; font-size:11.5px; color:var(--text-muted); font-weight:700; }
+  .kcard { background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--accent); border-radius:9px; padding:9px 11px; margin-bottom:8px; cursor:pointer; transition:transform .05s; }
+  .kcard:hover { transform:translateY(-1px); box-shadow:0 3px 10px rgba(0,0,0,.07); }
+  .kcard.in_progress { border-left-color:var(--warn); } .kcard.done { border-left-color:var(--good,#12925a); }
+  .kcard .ksr { font-size:12px; font-weight:800; color:var(--accent); }
+  .kcard .kitem { font-size:12.5px; margin:3px 0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .kcard .kmeta { font-size:11.5px; color:var(--text-muted); display:flex; gap:8px; flex-wrap:wrap; }
+  .kempty { font-size:12px; color:var(--text-muted); text-align:center; padding:16px 0; }
+  @media (max-width:760px){ .kanban{ grid-template-columns:1fr; } }
+
   table.reqtable td.num { text-align: right; }
   table.reqtable th.num { text-align: right; }
   .table-empty { padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 13.5px; }
@@ -983,6 +1026,11 @@
             <button class="tab" data-status="in_progress">진행중</button>
             <button class="tab" data-status="done">완료</button>
           </div>
+          <div class="viewswitch" id="viewSwitch" title="보기 방식">
+            <button type="button" class="vbtn on" data-vm="calendar">📅 캘린더</button>
+            <button type="button" class="vbtn" data-vm="list">☰ 목록</button>
+            <button type="button" class="vbtn" data-vm="kanban">🗂 칸반</button>
+          </div>
           <select class="selectfilter" id="assigneeFilter"><option value="">담당자 전체</option></select>
           <select class="selectfilter" id="channelFilter"><option value="">판매처 전체</option></select>
           <button type="button" class="btn ghost" id="bulkDeleteBtn" title="왼쪽 체크박스로 고른 요청들을 한 번에 삭제(취소)해요" disabled style="opacity:.5;cursor:not-allowed;border-color:var(--danger,#d9534f);color:var(--danger,#d9534f);">
@@ -990,7 +1038,7 @@
           </button>
           <div class="chipfilters" id="teamChips"></div>
         </div>
-        <div class="tablescroll">
+        <div class="tablescroll" id="listView">
           <table class="reqtable">
             <thead>
               <tr>
@@ -1018,6 +1066,8 @@
           </table>
           <div class="table-empty" id="tableEmpty" style="display:none;">표시할 요청이 없어요</div>
         </div>
+        <div id="calendarView" style="display:none;"></div>
+        <div id="kanbanView" style="display:none;"></div>
       </div>
 
       <div class="howto">
@@ -1285,6 +1335,8 @@
   let activeView = "dashboard";
   let searchTerm = "";
   let todayOnly = false;
+  let viewMode = "calendar";    // 기본을 캘린더로 (list | calendar | kanban 전환)
+  let calCur = null;            // 캘린더가 보고 있는 달 {y, m}
   const expanded = new Set();
   const selected = new Set();   // 엑셀로 뽑을 주문건(요청번호) 선택 목록
 
@@ -1828,8 +1880,116 @@
     return rows;
   }
 
+  // ===== 캘린더 보기 =====
+  function ymNow(){ const p = (typeof TODAY === "string" && TODAY ? TODAY : "").split("-"); return { y: (+p[0]) || new Date().getFullYear(), m: ((+p[1]) || 1) - 1 }; }
+  function pad2(n){ return String(n).padStart(2, "0"); }
+
+  function renderCalendar(rows){
+    const box = document.getElementById("calendarView");
+    if(!calCur) calCur = ymNow();
+    const y = calCur.y, m = calCur.m;
+    const byDate = {};
+    rows.forEach(r => { const d = r.desiredDate; if(d){ (byDate[d] = byDate[d] || []).push(r); } });
+    const first = new Date(y, m, 1).getDay();
+    const days = new Date(y, m + 1, 0).getDate();
+    const prevDays = new Date(y, m, 0).getDate();
+    const cells = [];
+    for(let i = 0; i < first; i++) cells.push({ out:true, d: prevDays - first + 1 + i });
+    for(let d = 1; d <= days; d++) cells.push({ out:false, d });
+    while(cells.length % 7 !== 0) cells.push({ out:true, d: cells.length });
+    let gridHtml = "";
+    cells.forEach(c => {
+      const key = y + "-" + pad2(m + 1) + "-" + pad2(c.d);
+      const isToday = (!c.out && key === TODAY);
+      let chips = "";
+      if(!c.out && byDate[key]){
+        const list = byDate[key];
+        list.slice(0, 3).forEach(r => {
+          const label = esc(r.team || r.requester || r.requestId);
+          chips += `<div class="cchip ${r.status}" data-openid="${esc(r.requestId)}" title="${esc(r.requestId)} · ${esc(productSummary(r))}">${label}</div>`;
+        });
+        if(list.length > 3) chips += `<div class="cmore" data-openid="${esc(list[3].requestId)}">+${list.length - 3}건 더</div>`;
+      }
+      gridHtml += `<div class="ccell${c.out ? " out" : ""}${isToday ? " ctodaycell" : ""}"><div class="cdaynum">${c.d}</div>${chips}</div>`;
+    });
+    box.innerHTML =
+      `<div class="calbar">
+        <div class="cnav"><button data-cal="prev">‹</button><span class="cmon">${y}년 ${m + 1}월</span><button data-cal="next">›</button></div>
+        <button class="ctoday" data-cal="today">오늘</button>
+        <div class="callegend">
+          <span><span class="cdot" style="background:var(--accent)"></span>대기</span>
+          <span><span class="cdot" style="background:var(--warn)"></span>진행중</span>
+          <span><span class="cdot" style="background:var(--good,#12925a)"></span>완료</span>
+          <span style="opacity:.7;">· 출고 희망일 기준</span>
+        </div>
+      </div>
+      <div class="caldow"><div>일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div>토</div></div>
+      <div class="calgrid">${gridHtml}</div>`;
+    box.querySelectorAll("[data-cal]").forEach(b => b.addEventListener("click", () => {
+      const act = b.dataset.cal;
+      if(act === "today") calCur = ymNow();
+      else { let nm = calCur.m + (act === "next" ? 1 : -1), ny = calCur.y; if(nm < 0){ nm = 11; ny--; } if(nm > 11){ nm = 0; ny++; } calCur = { y:ny, m:nm }; }
+      renderTable();
+    }));
+    box.querySelectorAll("[data-openid]").forEach(el => el.addEventListener("click", () => openRequestDetail(el.dataset.openid)));
+  }
+
+  // ===== 칸반 보기 =====
+  function renderKanban(rows){
+    const box = document.getElementById("kanbanView");
+    const cols = [
+      { key:"pending", label:"대기", cls:"" },
+      { key:"in_progress", label:"진행중", cls:"in_progress" },
+      { key:"done", label:"완료", cls:"done" },
+    ];
+    let html = `<div class="kanban">`;
+    cols.forEach(col => {
+      const list = rows.filter(r => r.status === col.key);
+      html += `<div class="kcol"><h4>${col.label} <span class="kcount">${list.length}</span></h4>`;
+      if(!list.length) html += `<div class="kempty">없음</div>`;
+      list.forEach(r => {
+        html += `<div class="kcard ${col.cls}" data-openid="${esc(r.requestId)}">
+          <div class="ksr">${esc(r.requestId)}</div>
+          <div class="kitem">${esc(productSummary(r)) || "-"}</div>
+          <div class="kmeta"><span>${esc(r.team) || "-"} · ${esc(r.requester) || "-"}</span><span>🚚 ${esc(r.desiredDate) || "-"}</span></div>
+        </div>`;
+      });
+      html += `</div>`;
+    });
+    html += `</div>`;
+    box.innerHTML = html;
+    box.querySelectorAll("[data-openid]").forEach(el => el.addEventListener("click", () => openRequestDetail(el.dataset.openid)));
+  }
+
+  // 캘린더/칸반에서 항목을 누르면 → 목록 보기로 전환하고 그 요청을 펼쳐서 보여줍니다.
+  function openRequestDetail(sr){
+    if(!sr) return;
+    viewMode = "list";
+    updateViewModeButtons();
+    expanded.add(sr);
+    renderTable();
+    setTimeout(() => {
+      const tr = document.querySelector(`#tableBody tr.mainrow[data-id="${CSS.escape(sr)}"]`);
+      if(tr){ tr.scrollIntoView({ behavior:"smooth", block:"center" }); loadAttachmentsInto(sr); loadHistoryInto(sr); }
+    }, 70);
+  }
+
+  function updateViewModeButtons(){
+    document.querySelectorAll("#viewSwitch .vbtn").forEach(b => b.classList.toggle("on", b.dataset.vm === viewMode));
+  }
+
   function renderTable() {
     const rows = getFilteredRows();
+
+    // 보기 방식(목록/캘린더/칸반) 전환 — 같은 필터 결과(rows)를 다른 모양으로 그립니다.
+    const listView = document.getElementById("listView");
+    const calView = document.getElementById("calendarView");
+    const kanView = document.getElementById("kanbanView");
+    if (listView) listView.style.display = viewMode === "list" ? "" : "none";
+    if (calView) calView.style.display = viewMode === "calendar" ? "" : "none";
+    if (kanView) kanView.style.display = viewMode === "kanban" ? "" : "none";
+    if (viewMode === "calendar") { renderCalendar(rows); return; }
+    if (viewMode === "kanban") { renderKanban(rows); return; }
 
     const body = document.getElementById("tableBody");
     document.getElementById("tableEmpty").style.display = rows.length ? "none" : "";
@@ -2683,7 +2843,7 @@
 
   /** 요청 목록을 우리 양식 엑셀로 내려받습니다. (전체/선택 공용) */
   // 유상/무상 회사 표준 양식 컬럼 (발주서와 동일)
-  const FREE_COLS = ["주문번호","상품명","옵션","수량","주문일","주문시간","주문자이름","주문자연락처","수령자이름","수령자연락처","수령자우편번호","수령자주소","배송메세지"];
+  const FREE_COLS = ["주문번호","상품명","옵션","수량","주문일","주문시간","수령자이름","수령자연락처","수령자주소","배송메세지","상품코드"];
   const PAID_COLS = ["주문번호","상품명","옵션","수량","주문일","주문시간","수령자이름","수령자연락처","수령자주소","배송메세지","판매가"];
 
   /**
@@ -2714,9 +2874,9 @@
           freeRows.push({
             "주문번호": r.requestId, "상품명": p.name || "", "옵션": p.option || "", "수량": p.qty ?? "",
             "주문일": datePart(r), "주문시간": timePart(r.receivedAt),
-            "주문자이름": r.requester || "", "주문자연락처": "",
             "수령자이름": r.receiver.name || "", "수령자연락처": r.receiver.phone || "",
-            "수령자우편번호": z.zip, "수령자주소": z.rest, "배송메세지": r.receiver.message || ""
+            "수령자주소": r.receiver.address || "", "배송메세지": r.receiver.message || "",
+            "상품코드": p.code || ""
           });
         }
       });
@@ -2786,6 +2946,12 @@
     t.classList.add("active");
     activeStatus = t.dataset.status;
     clearTodayFilter();
+    renderTable();
+  }));
+  // 보기 전환 버튼 (목록 / 캘린더 / 칸반)
+  document.querySelectorAll("#viewSwitch .vbtn").forEach(b => b.addEventListener("click", () => {
+    viewMode = b.dataset.vm;
+    updateViewModeButtons();
     renderTable();
   }));
   document.getElementById("searchInput").addEventListener("input", (e) => {
@@ -2970,16 +3136,17 @@
 
   // ===== 여러 배송지 한 번에 등록 (다중 업로드) =====
   // 무상/유상 양식 컬럼. 요청자가 이 양식을 받아 채워서 올리면 각 줄이 별도 요청서가 됩니다.
-  const BULK_FREE_COLS = ["수령자이름","수령자연락처","수령자우편번호","수령자주소","배송메세지","상품명","옵션","수량","상품코드"];
-  const BULK_PAID_COLS = ["수령자이름","수령자연락처","수령자우편번호","수령자주소","배송메세지","상품명","옵션","수량","상품코드","판매가"];
+  // 무상은 물류 다운로드 양식과 동일한 11칸. (주문번호·주문일·주문시간은 비워 두면 자동으로 채워져요)
+  const BULK_FREE_COLS = ["주문번호","상품명","옵션","수량","주문일","주문시간","수령자이름","수령자연락처","수령자주소","배송메세지","상품코드"];
+  const BULK_PAID_COLS = ["주문번호","상품명","옵션","수량","주문일","주문시간","수령자이름","수령자연락처","수령자주소","배송메세지","상품코드","판매가"];
 
   /** 무상/유상 다중배송 양식(.xlsx)을 만들어 내려받습니다. (헤더 + 예시 1줄) */
   function downloadBulkTemplate(kind) {
     const paid = (kind === "paid");
     const cols = paid ? BULK_PAID_COLS : BULK_FREE_COLS;
     const example = paid
-      ? ["김수령","010-1234-5678","06236","서울 강남구 테헤란로 1, 3층","부재 시 문 앞","베이직 지압볼","색상 골드",1,"W25XX034","19000"]
-      : ["김수령","010-1234-5678","06236","서울 강남구 테헤란로 1, 3층","부재 시 문 앞","베이직 지압볼","색상 골드",1,"W25XX034"];
+      ? ["","베이직 지압볼","색상 골드",1,"","","김수령","010-1234-5678","서울 강남구 테헤란로 1, 3층","부재 시 문 앞","W25XX034","19000"]
+      : ["","베이직 지압볼","색상 골드",1,"","","김수령","010-1234-5678","서울 강남구 테헤란로 1, 3층","부재 시 문 앞","W25XX034"];
     try {
       const ws = XLSX.utils.aoa_to_sheet([cols, example]);
       const wb = XLSX.utils.book_new();
