@@ -460,6 +460,11 @@
   .kempty { font-size:12px; color:var(--text-muted); text-align:center; padding:16px 0; }
   @media (max-width:760px){ .kanban{ grid-template-columns:1fr; } }
 
+  /* ===== 요청 상세 팝업 (캘린더/칸반에서 한 건만 열기) ===== */
+  .reqmodal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.42); display:none; align-items:flex-start; justify-content:center; z-index:60; padding:24px 14px; overflow:auto; }
+  .reqmodal-panel { background:var(--surface); border:1px solid var(--border); border-radius:14px; max-width:580px; width:100%; padding:16px 18px 20px; box-shadow:0 16px 50px rgba(0,0,0,.28); margin:auto; }
+  .reqmodal-head { display:flex; justify-content:flex-end; gap:6px; margin-bottom:4px; }
+
   table.reqtable td.num { text-align: right; }
   table.reqtable th.num { text-align: right; }
   .table-empty { padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 13.5px; }
@@ -1209,7 +1214,7 @@
   }
 
   // 오프뷰티 매장 주소 자동완성 데이터 (매장명 입력 시 주소·연락처 자동 채움)
-  const OFFBEAUTY_STORES = [{"name": "오프뷰티 광장시장점", "addr": "서울 종로구 창경궁로 88 1층 252호", "phone": "0507-1349-2740"}, {"name": "오프뷰티 망원점", "addr": "서울 마포구 월드컵로 13길 23 1층", "phone": "0507-1334-0336"}, {"name": "오프뷰티 인사점", "addr": "서울 종로구 인사동길 14 1층", "phone": "0507-1308-2720"}, {"name": "오프뷰티 고대점", "addr": "서울 성북구 안암동5가 104-30번지 1층", "phone": "0507-1414-1725"}, {"name": "오프뷰티 이대점", "addr": "서울 서대문구 이화여대길 51 1층", "phone": "070-1564-1151"}, {"name": "오프뷰티 부산괴정역점", "addr": "부산 사하구 사하로 200(형지스퀘어) 1층", "phone": "0507-1416-0346"}, {"name": "오프뷰티 대전중앙시장점", "addr": "대전광역시 동구 원동 49-6 1층", "phone": "0507-1369-2268"}, {"name": "오프뷰티 천안 펜타포트점", "addr": "충남 천안시 서북구 공원로 196 펜타포트 지하2층", "phone": "0507-1493-5804"}, {"name": "오프뷰티 구리남양주점", "addr": "경기도 구리시 경춘북로 230 모다아울렛 1층", "phone": "0507-1484-9098"}, {"name": "오프뷰티 춘천점", "addr": "강원 춘천시 방송길 77 모다아울렛 1층", "phone": "0507-1359-6392"}, {"name": "오프뷰티 인천부평점", "addr": "인천광역시 부평구 부평동 70-127 지하 1층", "phone": "032-452-2020"}, {"name": "오프뷰티 시흥점", "addr": "경기 시흥시 장현능곡로 155, 플랑드르 모다아울렛 3층 오프뷰티 시흥점", "phone": "0507-1315-4707"}, {"name": "오프뷰티 스타필드 고양점", "addr": "경기 고양시 덕양구 고양대로 1955 스타필드 고양점 1층 신세계팩토리 오프뷰티", "phone": "031-5173-1561"}, {"name": "오프뷰티 부산 서면점", "addr": "부산광역시 부산진구 중앙대로692번길 22 (부전동), 1층", "phone": "0507-1389-2111"}, {"name": "오프뷰티 청주성안점", "addr": "충북 청주시 상당구 상당로69번길 20 (북문로 1가), 1층", "phone": "0507-1472-4456"}, {"name": "오프뷰티 전주객사점", "addr": "전북 전주시 완산구 전주객사5길 21-13 (GS편의점, 올리브영 사이 건물)", "phone": "063-283-7774"}, {"name": "오프뷰티 광주 충장로점", "addr": "광주광역시 동구 충장로 83-1 1층, 오프뷰티", "phone": "0507-1380-2967"}, {"name": "오프뷰티 수원역점", "addr": "수원 매산로 1가 11-14, 1층", "phone": "031-243-7785"}, {"name": "오프뷰티 창원 상남점", "addr": "경상남도 창원시 성산구 상남동 11-7, 1층", "phone": "0507-1352-3449"}, {"name": "오프뷰티 부산 남포점", "addr": "부산시 중구 광복로 52 1층", "phone": "0507-1313-3454"}, {"name": "오프뷰티 거제 디큐브점", "addr": "경상남도 거제시 장평로 12 디큐브백화점 1층", "phone": "0507-1482-1674"}, {"name": "오프뷰티 강남점", "addr": "서울특별시 강남구 봉은사로 315 (논현동, 재인빌딩) 1층", "phone": "X"}, {"name": "오프뷰티 대구동성로점", "addr": "대구광역시 중구 동성로 8-1 (동성로3가), 1층", "phone": "053-252-4445"}, {"name": "오프뷰티 명동스퀘어점", "addr": "서울특별시 중구 명동8나길 14 (충무로1가)", "phone": "02-318-2740"}, {"name": "오프뷰티 강릉중앙점", "addr": "강릉시 경강로 2090-1, 1층", "phone": "0507-1462-3032"}, {"name": "오프뷰티 경동시장점", "addr": "서울 동대문구 고산자로 451 세우약령시빌딩 1층", "phone": "0507-1323-0194"}, {"name": "오프뷰티 성수메가팩토리점", "addr": "서울특별시 성동구 연무장3길 9 (성수동2가) 나동 1층", "phone": "02-6958-5388"}, {"name": "오프뷰티 신촌점", "addr": "서울특별시 서대문구 연세로 31 1층", "phone": "0507-1334-6037"}, {"name": "오프뷰티 제주연동점", "addr": "제주특별자치도 제주시 연동7길 26(연동) 1층", "phone": "064-744-4044"}, {"name": "오프뷰티 신림점", "addr": "서울 관악구 남부순환로 1607 1층", "phone": "02-877-9402"}, {"name": "오프뷰티 남대문점", "addr": "서울 중구 남대문시장길 17 1층", "phone": "02-2039-0413"}, {"name": "오프뷰티 제주동문시장점", "addr": "제주특별자치도 제주시 동문로 6-1 (일도일동, 보성빌딩), 1층", "phone": "0507-1317-4040"}, {"name": "오프뷰티 행복한백화점", "addr": "서울 양천구 목동동로 309, 1층", "phone": "02-6678-3137"}, {"name": "오프뷰티 경주중앙점", "addr": "경상북도 경주시 동성로 112(노동동), 1층", "phone": "X"}, {"name": "오프뷰티 스타필드 운정점", "addr": "경기 파주시 와석순환로515번길 70, D동 4107호(1층)", "phone": "031-944-3096"}, {"name": "오프뷰티 청계광장시장점", "addr": "서울 종로구 청계천로 185, 1층", "phone": "02-2273-9402"}, {"name": "오프뷰티 익선점", "addr": "서울 종로구 수표로28길 21-15", "phone": ""}];
+  const OFFBEAUTY_STORES = [{"name": "오프뷰티 광장시장점", "addr": "서울 종로구 창경궁로 88 1층 252호", "phone": "0507-1349-2740"}, {"name": "오프뷰티 망원점", "addr": "서울 마포구 월드컵로 13길 23 1층", "phone": "0507-1334-0336"}, {"name": "오프뷰티 인사점", "addr": "서울 종로구 인사동길 14 1층", "phone": "0507-1308-2720"}, {"name": "오프뷰티 고대점", "addr": "서울 성북구 안암동5가 104-30번지 1층", "phone": "0507-1414-1725"}, {"name": "오프뷰티 이대점", "addr": "서울 서대문구 이화여대길 51 1층", "phone": "070-1564-1151"}, {"name": "오프뷰티 부산괴정역점", "addr": "부산 사하구 사하로 200(형지스퀘어) 1층", "phone": "0507-1416-0346"}, {"name": "오프뷰티 대전중앙시장점", "addr": "대전광역시 동구 원동 49-6 1층", "phone": "0507-1369-2268"}, {"name": "오프뷰티 천안 펜타포트점", "addr": "충남 천안시 서북구 공원로 196 펜타포트 지하2층", "phone": "0507-1493-5804"}, {"name": "오프뷰티 구리남양주점", "addr": "경기도 구리시 경춘북로 230 모다아울렛 1층", "phone": "0507-1484-9098"}, {"name": "오프뷰티 춘천점", "addr": "강원 춘천시 방송길 77 모다아울렛 1층", "phone": "0507-1359-6392"}, {"name": "오프뷰티 인천부평점", "addr": "인천광역시 부평구 부평동 70-127 지하 1층", "phone": "032-452-2020"}, {"name": "오프뷰티 시흥점", "addr": "경기 시흥시 장현능곡로 155, 플랑드르 모다아울렛 3층 오프뷰티 시흥점", "phone": "0507-1315-4707"}, {"name": "오프뷰티 스타필드 고양점", "addr": "경기 고양시 덕양구 고양대로 1955 스타필드 고양점 1층 신세계팩토리 오프뷰티", "phone": "031-5173-1561"}, {"name": "오프뷰티 부산 서면점", "addr": "부산광역시 부산진구 중앙대로692번길 22 (부전동), 1층", "phone": "0507-1389-2111"}, {"name": "오프뷰티 청주성안점", "addr": "충북 청주시 상당구 상당로69번길 20 (북문로 1가), 1층", "phone": "0507-1472-4456"}, {"name": "오프뷰티 전주객사점", "addr": "전북 전주시 완산구 전주객사5길 21-13  (GS편의점, 올리브영 사이 건물)", "phone": "063-283-7774"}, {"name": "오프뷰티 광주 충장로점", "addr": "광주광역시 동구 충장로 83-1 1층, 오프뷰티", "phone": "0507-1380-2967"}, {"name": "오프뷰티 수원역점", "addr": "수원 매산로 1가 11-14, 1층", "phone": "031-243-7785"}, {"name": "오프뷰티 창원 상남점", "addr": "경상남도 창원시 성산구 상남동 11-7, 1층", "phone": "0507-1352-3449"}, {"name": "오프뷰티 부산 남포점", "addr": "부산시 중구 광복로 52 1층", "phone": "0507-1313-3454"}, {"name": "오프뷰티 거제 디큐브점", "addr": "경상남도 거제시 장평로 12 디큐브백화점 1층", "phone": "0507-1482-1674"}, {"name": "오프뷰티 강남점", "addr": "서울특별시 강남구 봉은사로 315 (논현동, 재인빌딩) 1층", "phone": "X"}, {"name": "오프뷰티 대구동성로점", "addr": "대구광역시 중구 동성로 8-1 (동성로3가), 1층", "phone": "053-252-4445"}, {"name": "오프뷰티 명동스퀘어점", "addr": "서울특별시 중구 명동8나길 14 (충무로1가)", "phone": "02-318-2740"}, {"name": "오프뷰티 강릉중앙점", "addr": "강릉시 경강로 2090-1, 1층", "phone": "0507-1462-3032"}, {"name": "오프뷰티 경동시장점", "addr": "서울 동대문구 고산자로 451 세우약령시빌딩 1층", "phone": "0507-1323-0194"}, {"name": "오프뷰티 성수메가팩토리점", "addr": "서울특별시 성동구 연무장3길 9 (성수동2가) 나동 1층", "phone": "02-6958-5388"}, {"name": "오프뷰티 신촌점", "addr": "서울특별시 서대문구 연세로 31 1층", "phone": "0507-1334-6037"}, {"name": "오프뷰티 제주연동점", "addr": "제주특별자치도 제주시 연동7길 26(연동) 1층", "phone": "064-744-4044"}, {"name": "오프뷰티 신림점", "addr": "서울 관악구 남부순환로 1607 1층", "phone": "02-877-9402"}, {"name": "오프뷰티 남대문점", "addr": "서울 중구 남대문시장길 17 1층", "phone": "02-2039-0413"}, {"name": "오프뷰티 제주동문시장점", "addr": "제주특별자치도 제주시 동문로 6-1 (일도일동, 보성빌딩), 1층", "phone": "0507-1317-4040"}, {"name": "오프뷰티 행복한백화점", "addr": "서울 양천구 목동동로 309, 1층", "phone": "02-6678-3137"}, {"name": "오프뷰티 경주중앙점", "addr": "경상북도 경주시 동성로 112(노동동), 1층", "phone": "X"}, {"name": "오프뷰티 스타필드 운정점", "addr": "경기 파주시 와석순환로515번길 70, D동 4107호(1층)", "phone": "031-944-3096"}, {"name": "오프뷰티 청계광장시장점", "addr": "서울 종로구 청계천로 185, 1층", "phone": "02-2273-9402 02-2273-9403"}, {"name": "오프뷰티 익선점", "addr": "서울 종로구 수표로28길 21-15", "phone": ""}, {"name": "오프뷰티 부평역점", "addr": "인천광역시 부평구 부평문화로66번길 23, 1층", "phone": "070-4896-2100"}, {"name": "오프뷰티 평택신장점", "addr": "경기 평택시 쇼핑로 37, 1층", "phone": "0507-1315-0183"}, {"name": "오프뷰티 롯데프리미엄아울렛 이천점", "addr": "경기 이천시 호법면 프리미엄아울렛로 177-74  롯데프리미엄아울렛이천점 키즈몰 A 블럭 3층", "phone": "031-887-4705"}];
 
   let DATA = [];
   function rebuildData() {
@@ -1961,17 +1966,46 @@
     box.querySelectorAll("[data-openid]").forEach(el => el.addEventListener("click", () => openRequestDetail(el.dataset.openid)));
   }
 
-  // 캘린더/칸반에서 항목을 누르면 → 목록 보기로 전환하고 그 요청을 펼쳐서 보여줍니다.
-  function openRequestDetail(sr){
+  // 캘린더/칸반에서 항목을 누르면 → 그 요청 "한 건만" 팝업으로 엽니다. (전체 목록으로 안 바뀜)
+  function openRequestDetail(sr){ openRequestModal(sr); }
+
+  function closeReqModal(){ const ov = document.getElementById("reqModal"); if(ov) ov.style.display = "none"; }
+
+  function openRequestModal(sr){
     if(!sr) return;
-    viewMode = "list";
-    updateViewModeButtons();
-    expanded.add(sr);
-    renderTable();
-    setTimeout(() => {
-      const tr = document.querySelector(`#tableBody tr.mainrow[data-id="${CSS.escape(sr)}"]`);
-      if(tr){ tr.scrollIntoView({ behavior:"smooth", block:"center" }); loadAttachmentsInto(sr); loadHistoryInto(sr); }
-    }, 70);
+    const r = DATA.find(x => x.requestId === sr);
+    if(!r) return;
+    let ov = document.getElementById("reqModal");
+    if(!ov){
+      ov = document.createElement("div");
+      ov.id = "reqModal";
+      ov.className = "reqmodal-overlay";
+      ov.innerHTML = '<div class="reqmodal-panel" id="reqModalPanel"></div>';
+      document.body.appendChild(ov);
+      ov.addEventListener("click", e => { if(e.target.id === "reqModal") closeReqModal(); });
+      document.addEventListener("keydown", e => { if(e.key === "Escape") closeReqModal(); });
+    }
+    const panel = document.getElementById("reqModalPanel");
+    const canEdit = r.status !== "cancelled";
+    panel.innerHTML =
+      `<div class="reqmodal-head">
+        ${canEdit ? `<button type="button" class="btn ghost small" id="rmEdit">수정</button><button type="button" class="btn ghost small" id="rmCancel">취소</button>` : ""}
+        <button type="button" class="btn ghost small" id="rmClose">닫기 ✕</button>
+      </div>${detailHtml(r)}`;
+    ov.style.display = "flex";
+    loadAttachmentsInto(sr);
+    loadHistoryInto(sr);
+    panel.querySelector("#rmClose").onclick = closeReqModal;
+    if(canEdit){
+      const eb = panel.querySelector("#rmEdit"); if(eb) eb.onclick = () => { closeReqModal(); prefillFormForEdit(r); };
+      const cb = panel.querySelector("#rmCancel"); if(cb) cb.onclick = () => { closeReqModal(); cancelRequest(sr); };
+    }
+    panel.querySelectorAll("[data-copy]").forEach(b => b.onclick = () => { const rr = DATA.find(x => x.requestId === b.dataset.copy); if(rr) copyText(slackText(rr), b); });
+    panel.querySelectorAll(".linkOrderBtn").forEach(b => b.onclick = () => {
+      const input = panel.querySelector(`.linkSeqInput[data-id="${CSS.escape(b.dataset.id)}"]`);
+      const seq = input ? input.value : prompt("이지어드민 관리번호를 입력해 주세요");
+      if(seq != null) linkOrder(b.dataset.id, seq);
+    });
   }
 
   function updateViewModeButtons(){
@@ -3181,7 +3215,12 @@
     }
     if (!orders.length) { bad("파일에서 주문건을 찾지 못했어요. 양식을 확인해 주세요."); return; }
 
-    if (!confirm(`${orders.length}건의 주문을 각각 별도 요청서로 등록할까요?\n(요청팀: ${team} / 요청자: ${requester} / 희망일: ${desiredDate} 공통 적용)`)) {
+    const warnStores = orders._warnStores || [];
+    let confirmMsg = `${orders.length}건의 주문을 각각 별도 요청서로 등록할까요?\n(요청팀: ${team} / 요청자: ${requester} / 희망일: ${desiredDate} 공통 적용)`;
+    if (warnStores.length) {
+      confirmMsg += `\n\n⚠️ 주소록에서 주소를 못 찾은 매장(주소 비어있음, 등록 후 확인 필요):\n· ${warnStores.join("\n· ")}`;
+    }
+    if (!confirm(confirmMsg)) {
       msg.textContent = ""; return;
     }
 
@@ -3235,41 +3274,146 @@
     document.getElementById("fBulkFile").value = "";
   }
 
-  /** 다중배송 양식을 읽어 수령자(이름+연락처+주소)별로 묶습니다. → [{name,phone,address,message,products:[...]}] */
+  /* =========================================================================
+   * 스마트 유니버설 임포트 — 타팀에서 어떤 양식으로 보내도 우리 요청서로 매칭
+   *  · 헤더가 몇 번째 줄에 있든 자동 탐지
+   *  · 컬럼 이름이 달라도 별칭 사전으로 우리 필드에 매핑
+   *  · 매장/수령자가 빈 칸이면 위 줄 값을 이어받음(forward-fill)
+   *  · 소계/합계/빈 서식줄은 건너뜀
+   *  · 매장명만 있고 주소가 없으면 우리 주소록(OFFBEAUTY_STORES)에서 주소·연락처 자동 채움
+   *  · 수량은 출고수량 > 수주수량 > 수량 순으로 인식
+   * ======================================================================= */
+  const IMPORT_ALIASES = {
+    name:   ["수령자이름","수령자 이름","수령자명","수령인","수취인","받는분","받는사람","받으실분","고객명","성명"],
+    store:  ["매장","매장명","점포명","점명","지점","지점명","판매처","거래처","거래처명","납품처","배송처","도착지","출고처","점포"],
+    phone:  ["수령자연락처","수령자 연락처","수령인연락처","연락처","전화번호","휴대폰","핸드폰","전화","수취인연락처","받는분연락처","매장연락처"],
+    zip:    ["수령자우편번호","우편번호","우편","zip"],
+    addr:   ["수령자주소","수령자 주소","수령인주소","주소","배송지","배송주소","받는주소","수취인주소","도착지주소","매장주소"],
+    msg:    ["배송메세지","배송메시지","배송 메세지","배송요청","요청사항","배송메모","전달사항","배송시요청사항"],
+    pname:  ["상품명","제품명","품명","상품","품목","품목명","상품이름"],
+    popt:   ["옵션","옵션명","옵션정보","옵션값","색상","사이즈","규격"],
+    qtyOut: ["출고수량","출고 수량","출고량"],
+    qtyOrd: ["수주수량","주문수량","발주수량","요청수량"],
+    qty:    ["수량","개수","주문수량합계","수량합계","ea"],
+    code:   ["상품코드","상품 코드","코드","품번","품목코드","제품코드","sku","바코드","상품번호"],
+    orderNo:["주문번호","주문 번호","오더번호","주문no"],
+    orderDate:["주문일","주문일자","발주일","주문날짜"],
+    orderTime:["주문시간","주문 시간"],
+    price:  ["판매가","단가","가격","금액"],
+  };
+  const impNorm = (s) => String(s == null ? "" : s).replace(/[\s()（）\[\]{}<>:：·.,\-_/]/g, "").toLowerCase();
+
+  /** 매장명을 우리 주소록의 표준 매장으로 매칭(정규화 후 부분일치) */
+  function matchStore(rawName) {
+    if (!rawName) return null;
+    const clean = (x) => String(x || "")
+      .replace(/오프뷰티|off\s*beauty|offbeauty/gi, "")
+      .replace(/메가|팩토리|프리미엄|아울렛|스퀘어|점포|매장/g, "")
+      .replace(/[\s()（）\[\]·.,\-_/]/g, "")
+      .replace(/점$/, "")
+      .toLowerCase();
+    const target = clean(rawName);
+    if (!target) return null;
+    let best = null, bestLen = -1;
+    for (const s of OFFBEAUTY_STORES) {
+      const c = clean(s.name);
+      if (!c) continue;
+      if (c === target) return s;                                  // 완전 일치 우선
+      if ((c.includes(target) || target.includes(c)) && c.length > bestLen) { best = s; bestLen = c.length; }
+    }
+    return best;
+  }
+
+  /** 다중배송/타팀 양식을 읽어 수령자(또는 매장)별로 묶습니다.
+   *  → [{name,phone,address,message,storeMatched,products:[{code,name,option,qty}]}] */
   async function parseBulkFile(file) {
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf, { type: "array" });
     const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "" });
     if (!rows.length) throw new Error(file.name + ": 빈 파일이에요.");
-    const header = rows[0].map(h => String(h || "").trim());
-    const find = (names) => { for (const n of names) { const i = header.findIndex(h => h === n); if (i >= 0) return i; } return -1; };
-    const col = {
-      name: find(["수령자이름","수령자 이름"]),
-      phone: find(["수령자연락처","수령자 연락처"]),
-      zip: find(["수령자우편번호","수령자 우편번호"]),
-      addr: find(["수령자주소","수령자 주소"]),
-      msg: find(["배송메세지","배송메시지","배송 메세지"]),
-      pname: find(["상품명"]),
-      popt: find(["옵션"]),
-      pqty: find(["수량"]),
-      pcode: find(["상품코드","상품 코드"]),
+
+    // 1) 헤더행 탐지 — 상위 25줄 중 별칭과 가장 많이 겹치는 줄을 헤더로 봄
+    const flatAlias = {};
+    for (const k in IMPORT_ALIASES) for (const a of IMPORT_ALIASES[k]) flatAlias[impNorm(a)] = k;
+    const scoreRow = (r) => {
+      const seen = new Set();
+      (r || []).forEach(c => { const key = flatAlias[impNorm(c)]; if (key) seen.add(key); });
+      return seen.size;
     };
-    const dataRows = rows.slice(1).filter(r => r.some(v => String(v || "").trim() !== ""));
-    const get = (r, i) => (i >= 0 ? String(r[i] || "").trim() : "");
+    let headerIdx = 0, headerScore = -1;
+    const scanTo = Math.min(rows.length, 25);
+    for (let i = 0; i < scanTo; i++) {
+      const s = scoreRow(rows[i]);
+      if (s > headerScore) { headerScore = s; headerIdx = i; }
+    }
+    if (headerScore < 2) throw new Error(file.name + ": 표의 제목줄(상품명·수량·주소 등)을 찾지 못했어요. 양식을 확인해 주세요.");
+
+    // 2) 헤더 → 우리 필드로 매핑(같은 필드에 여러 열이면 첫 번째만)
+    const header = rows[headerIdx];
+    const col = {};
+    header.forEach((c, idx) => { const key = flatAlias[impNorm(c)]; if (key && col[key] === undefined) col[key] = idx; });
+
+    const get = (r, key) => (col[key] === undefined ? "" : String(r[col[key]] == null ? "" : r[col[key]]).trim());
+    const pickQty = (r) => {
+      for (const key of ["qtyOut", "qtyOrd", "qty"]) {
+        if (col[key] === undefined) continue;
+        const n = parseInt(String(get(r, key)).replace(/[^\d-]/g, ""), 10);
+        if (Number.isFinite(n) && n > 0) return n;
+      }
+      return 0;
+    };
+
+    // 3) 데이터행 순회 — 매장/수령자 forward-fill, 소계·빈줄 스킵
     const groups = new Map();
-    dataRows.forEach(r => {
-      const pname = get(r, col.pname);
-      if (!pname) return;                    // 상품명 없는 줄은 건너뜀(빈 서식줄)
-      const name = get(r, col.name), phone = get(r, col.phone);
-      const zip = get(r, col.zip), addr0 = get(r, col.addr);
-      const address = zip ? `(${zip}) ${addr0}` : addr0;
-      const key = name + "|" + phone + "|" + address;
-      if (!groups.has(key)) groups.set(key, { name, phone, address, message: get(r, col.msg), products: [] });
-      let qty = parseInt(get(r, col.pqty), 10);
-      if (!Number.isFinite(qty) || qty <= 0) qty = 1;
-      groups.get(key).products.push({ code: get(r, col.pcode), name: pname, option: get(r, col.popt) || "없음", qty });
-    });
-    return [...groups.values()];
+    let carryStore = "", carryName = "", carryPhone = "", carryAddr = "", carryMsg = "";
+    const warnStores = new Set();
+
+    for (let i = headerIdx + 1; i < rows.length; i++) {
+      const r = rows[i] || [];
+      const rowText = r.map(v => String(v || "").trim()).join("");
+      if (!rowText) continue;                                          // 완전 빈 줄
+
+      // 매장/수령자/주소 등은 병합셀 특성상 첫 줄에만 있는 경우가 많아 이어받음
+      const store = get(r, "store"); if (store) carryStore = store;
+      const nm    = get(r, "name");  if (nm)    carryName = nm;
+      const ph    = get(r, "phone"); if (ph)    carryPhone = ph;
+      const ad    = get(r, "addr");  if (ad)    carryAddr = ad;
+      const mg    = get(r, "msg");   if (mg)    carryMsg = mg;
+
+      const pname = get(r, "pname");
+      const code  = get(r, "code");
+      const qty   = pickQty(r);
+      // 상품명도 코드도 없으면 상품 줄이 아님(소계/합계/구분선) → 건너뜀
+      if (!pname && !code) continue;
+      // 소계/합계/총계 등의 안내문이 상품명칸에 들어온 경우 제외
+      if (/소계|합계|총계|합\s*계|subtotal|total/i.test(pname)) continue;
+
+      // 수령자 결정: 주소가 직접 있으면 그 수령자, 없고 매장만 있으면 주소록에서 채움
+      let name = carryName, phone = carryPhone, address = carryAddr;
+      let storeMatched = true;
+      if (!address && carryStore) {
+        const s = matchStore(carryStore);
+        if (s) { name = name || s.name; phone = phone || s.phone; address = s.addr; }
+        else   { name = name || carryStore; storeMatched = false; warnStores.add(carryStore); }
+      } else if (!name && carryStore) {
+        name = carryStore;
+      }
+      const zip = get(r, "zip");
+      if (zip && address && !address.startsWith("(")) address = `(${zip}) ${address}`;
+
+      const groupKey = (carryStore || "") + "|" + name + "|" + phone + "|" + address;
+      if (!groups.has(groupKey)) {
+        groups.set(groupKey, { name, phone, address, message: carryMsg, storeMatched, products: [] });
+      }
+      groups.get(groupKey).products.push({
+        code, name: pname || code, option: get(r, "popt") || "없음", qty: qty > 0 ? qty : 1,
+      });
+    }
+
+    const result = [...groups.values()].filter(g => g.products.length);
+    if (!result.length) throw new Error(file.name + ": 표는 찾았지만 등록할 상품 줄이 없어요. 상품명/수량이 있는지 확인해 주세요.");
+    result._warnStores = [...warnStores];   // 주소를 못 찾은 매장(참고용)
+    return result;
   }
 
   document.getElementById("dlFreeTemplate").addEventListener("click", () => downloadBulkTemplate("free"));
