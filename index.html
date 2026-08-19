@@ -1298,12 +1298,13 @@
       document.querySelectorAll("[data-stock-code]").forEach(el => {
         const code = el.getAttribute("data-stock-code");
         if (!code) return; // 상품코드 없는 행은 "-" 그대로 둠
+        if (el.hasAttribute("data-req-qty")) { paintLineStock(el); return; }
         const s = STOCK[code];
-        if (el.hasAttribute("data-req-qty")) { paintLineStock(el, s); return; }
         el.textContent = s
           ? (s.available != null ? `가용 ${s.available}` : `재고 ${s.stock}`)
           : "코드 없음";
       });
+      refreshLineStocks();   // 상세표 가용재고(상품코드·바코드) 실시간 갱신
     } catch (e) { /* 재고 표시는 부가 정보이므로 실패해도 화면은 정상 동작 */ }
   }
 
@@ -1329,11 +1330,16 @@
     return s.available != null ? `가용 ${s.available}` : `재고 ${s.stock}`;
   }
 
-  // 상세보기 상품표의 '가용재고' 칸 그리기. 요청 수량보다 가용재고가 적으면
-  // 과발주 방지를 위해 빨간색 ⚠️ 경고를 함께 표시합니다. (실시간 재고 갱신에 맞춰 다시 칠해짐)
-  function paintLineStock(el, s) {
-    const reqRaw = el.getAttribute("data-req-qty");
-    const req = Number(reqRaw);
+  // 상세보기 상품표의 '가용재고' 칸 전용 캐시.
+  // 상품코드(S코드)든 바코드(88…)든 검색 API로 조회한 값을 code 기준으로 담아둡니다.
+  let LINE_STOCK = {};
+
+  // 상세보기 상품표의 '가용재고' 칸 그리기(LINE_STOCK에서 읽음). 요청 수량보다 가용재고가
+  // 적으면 과발주 방지를 위해 빨간색 ⚠️ 경고를 함께 표시합니다.
+  function paintLineStock(el) {
+    const code = el.getAttribute("data-stock-code");
+    const req = Number(el.getAttribute("data-req-qty"));
+    const s = code ? LINE_STOCK[code] : null;
     if (!s) { el.className = "num stockline"; el.innerHTML = '<span class="v empty">조회 중…</span>'; return; }
     const avail = (s.available != null ? s.available : s.stock);
     if (avail == null) { el.className = "num stockline"; el.innerHTML = '<span class="v empty">-</span>'; return; }
@@ -1343,6 +1349,27 @@
       ? `요청 ${req} > 가용 ${avail} — 재고가 부족해요 (과발주 주의)`
       : `현재 가용재고 ${avail}`;
     el.innerHTML = `가용 <b>${avail}</b>${under ? ' <span class="stock-warn">⚠️ 부족</span>' : ''}`;
+  }
+
+  // 화면에 보이는 상세표의 가용재고 칸을 실시간으로 갱신합니다.
+  // 상품코드·바코드 모두 검색 API로 조회되므로 둘 다 정확히 잡힙니다.
+  async function refreshLineStocks() {
+    const cells = [...document.querySelectorAll('[data-req-qty][data-stock-code]')].filter(el => el.offsetParent !== null);
+    if (!cells.length) return;
+    const codes = [...new Set(cells.map(el => el.getAttribute('data-stock-code')).filter(Boolean))];
+    await Promise.all(codes.map(async (c) => {
+      try {
+        const r = await fetch(API_STOCK + "/search?q=" + encodeURIComponent(c) + "&withStock=true");
+        if (!r.ok) return;
+        const list = await r.json();
+        if (Array.isArray(list) && list.length) {
+          // S코드면 productId 정확 일치를 우선, 바코드면 유일 결과이므로 첫 항목
+          const hit = list.find(x => String(x.productId || "") === c) || list[0];
+          LINE_STOCK[c] = { available: hit.available, stock: hit.stock };
+        }
+      } catch (e) { /* 재고는 부가정보 — 실패해도 화면은 정상 */ }
+    }));
+    cells.forEach(paintLineStock);
   }
   function daysUntil(dateStr) {
     if (!dateStr) return null;
@@ -2118,7 +2145,7 @@
         tr.classList.toggle("open", !open);
         tr.setAttribute("aria-expanded", String(!open));
         if (drow) drow.style.display = open ? "none" : "";
-        if (!open) { loadAttachmentsInto(id); loadHistoryInto(id); loadStockBadges(); }   // 펼칠 때 첨부파일·변경이력 불러오고, 가용재고도 최신으로 갱신
+        if (!open) { loadAttachmentsInto(id); loadHistoryInto(id); refreshLineStocks(); }   // 펼칠 때 첨부파일·변경이력 불러오고, 상품별 가용재고(상품코드·바코드) 즉시 조회
       };
       tr.addEventListener("click", (e) => { if (e.target.closest("button, input, a")) return; toggle(); });
       tr.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
@@ -3959,8 +3986,8 @@
     document.querySelectorAll("[data-stock-code]").forEach(el => {
       const code = el.getAttribute("data-stock-code");
       if (!code) return;
+      if (el.hasAttribute("data-req-qty")) { paintLineStock(el); return; }
       const s = STOCK[code];
-      if (el.hasAttribute("data-req-qty")) { paintLineStock(el, s); return; }
       if (s) {
         el.textContent = s.available != null ? `가용 ${s.available}` : `재고 ${s.stock}`;
       }
