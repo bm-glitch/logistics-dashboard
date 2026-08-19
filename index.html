@@ -493,6 +493,10 @@
   table.ptable td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
   table.ptable tr:last-child td { border-bottom: none; }
   table.ptable td.num, table.ptable th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.ptable td.stockline { white-space: nowrap; }
+  table.ptable td.stockline.stock-ok { color: var(--accent); }
+  table.ptable td.stockline.stock-over { color: var(--danger); font-weight: 700; }
+  table.ptable td.stockline .stock-warn { font-size: 11.5px; font-weight: 700; }
   table.ptable tfoot td { background: var(--surface-alt); font-weight: 700; }
   .lspill { font-size: 11px; font-weight: 700; border-radius: 5px; padding: 2px 8px; color: #fff; white-space: nowrap; }
   .lspill.ls-hold { background: var(--warn); }
@@ -1295,6 +1299,7 @@
         const code = el.getAttribute("data-stock-code");
         if (!code) return; // 상품코드 없는 행은 "-" 그대로 둠
         const s = STOCK[code];
+        if (el.hasAttribute("data-req-qty")) { paintLineStock(el, s); return; }
         el.textContent = s
           ? (s.available != null ? `가용 ${s.available}` : `재고 ${s.stock}`)
           : "코드 없음";
@@ -1322,6 +1327,22 @@
     const s = STOCK[code];
     if (!s) return "";
     return s.available != null ? `가용 ${s.available}` : `재고 ${s.stock}`;
+  }
+
+  // 상세보기 상품표의 '가용재고' 칸 그리기. 요청 수량보다 가용재고가 적으면
+  // 과발주 방지를 위해 빨간색 ⚠️ 경고를 함께 표시합니다. (실시간 재고 갱신에 맞춰 다시 칠해짐)
+  function paintLineStock(el, s) {
+    const reqRaw = el.getAttribute("data-req-qty");
+    const req = Number(reqRaw);
+    if (!s) { el.className = "num stockline"; el.innerHTML = '<span class="v empty">조회 중…</span>'; return; }
+    const avail = (s.available != null ? s.available : s.stock);
+    if (avail == null) { el.className = "num stockline"; el.innerHTML = '<span class="v empty">-</span>'; return; }
+    const under = Number.isFinite(req) && req > 0 && avail < req;
+    el.className = "num stockline " + (under ? "stock-over" : "stock-ok");
+    el.title = under
+      ? `요청 ${req} > 가용 ${avail} — 재고가 부족해요 (과발주 주의)`
+      : `현재 가용재고 ${avail}`;
+    el.innerHTML = `가용 <b>${avail}</b>${under ? ' <span class="stock-warn">⚠️ 부족</span>' : ''}`;
   }
   function daysUntil(dateStr) {
     if (!dateStr) return null;
@@ -1568,16 +1589,17 @@
       return `<span class="lspill ${cls}"${reason}>${esc(p.lineStatus)}</span>`;
     };
     return `<table class="ptable">
-      <thead><tr><th class="num">#</th><th>상품코드</th><th>상품명</th><th>옵션</th><th class="num">수량</th>${anyStatus ? "<th>상품 상태</th>" : ""}</tr></thead>
+      <thead><tr><th class="num">#</th><th>상품코드</th><th>상품명</th><th>옵션</th><th class="num">요청 수량</th><th class="num">가용재고</th>${anyStatus ? "<th>상품 상태</th>" : ""}</tr></thead>
       <tbody>${r.products.map((p, i) => `<tr>
         <td class="num">${i + 1}</td>
         <td class="num">${esc(p.code) || "-"}</td>
         <td>${esc(p.name) || "-"}</td>
         <td>${esc(p.option) || "-"}</td>
         <td class="num">${p.qty ?? "-"}</td>
+        <td class="num stockline"${p.code ? ` data-stock-code="${esc(p.code)}" data-req-qty="${p.qty ?? ""}"` : ""}>${p.code ? '<span class="v empty">조회 중…</span>' : '<span class="v empty">코드 없음</span>'}</td>
         ${anyStatus ? `<td>${statusPill(p)}${p.lineReason ? ` <span class="lsreason">${esc(p.lineReason)}</span>` : ""}</td>` : ""}
       </tr>`).join("")}</tbody>
-      <tfoot><tr><td colspan="${anyStatus ? 5 : 4}">합계 ${r.products.length}종</td><td class="num">${sum ?? "-"}</td></tr></tfoot>
+      <tfoot><tr><td colspan="4">합계 ${r.products.length}종</td><td class="num">${sum ?? "-"}</td><td></td>${anyStatus ? "<td></td>" : ""}</tr></tfoot>
     </table>`;
   }
 
@@ -2096,7 +2118,7 @@
         tr.classList.toggle("open", !open);
         tr.setAttribute("aria-expanded", String(!open));
         if (drow) drow.style.display = open ? "none" : "";
-        if (!open) { loadAttachmentsInto(id); loadHistoryInto(id); }   // 펼칠 때 첨부파일·변경이력 불러오기
+        if (!open) { loadAttachmentsInto(id); loadHistoryInto(id); loadStockBadges(); }   // 펼칠 때 첨부파일·변경이력 불러오고, 가용재고도 최신으로 갱신
       };
       tr.addEventListener("click", (e) => { if (e.target.closest("button, input, a")) return; toggle(); });
       tr.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
@@ -3938,6 +3960,7 @@
       const code = el.getAttribute("data-stock-code");
       if (!code) return;
       const s = STOCK[code];
+      if (el.hasAttribute("data-req-qty")) { paintLineStock(el, s); return; }
       if (s) {
         el.textContent = s.available != null ? `가용 ${s.available}` : `재고 ${s.stock}`;
       }
