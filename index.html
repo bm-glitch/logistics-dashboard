@@ -467,6 +467,8 @@
 
   table.reqtable td.num { text-align: right; }
   table.reqtable th.num { text-align: right; }
+  /* 요청번호·송장은 왼쪽 정렬(제목과 같은 방향)로 맞춰 "밀려 보이는" 현상 방지 */
+  table.reqtable td.reqidcell, table.reqtable td.col-track { text-align: left; }
   .table-empty { padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 13.5px; }
 
   /* Row detail */
@@ -2033,7 +2035,7 @@
       const showMissing = hasMissingInfo(r) && r.status !== "done";
       return `<tr class="mainrow${open ? " open" : ""}" data-id="${esc(r.requestId)}" tabindex="0" aria-expanded="${open}">
         <td><input type="checkbox" class="rowSelect" data-id="${esc(r.requestId)}" title="이 주문건 선택" ${selected.has(r.requestId) ? "checked" : ""} style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer;vertical-align:middle;"></td>
-        <td class="num">
+        <td class="num reqidcell">
           <span class="expandmark"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span>${esc(r.requestId) || "-"}${r.source === "local" ? '<span class="local-tag" title="이 브라우저에만 저장된 항목이에요">로컬</span>' : ""}
         </td>
         <td class="num col-extra">${esc(r.requestDate) || "-"}</td>
@@ -2059,7 +2061,7 @@
         </td>
       </tr>
       <tr class="detailrow" data-detail="${esc(r.requestId)}"${open ? "" : ' style="display:none;"'}>
-        <td colspan="18">${detailHtml(r)}</td>
+        <td colspan="17">${detailHtml(r)}</td>
       </tr>`;
     }).join("");
 
