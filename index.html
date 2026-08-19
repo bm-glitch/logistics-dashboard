@@ -443,7 +443,17 @@
   .cchip.pending { background:var(--accent-soft); color:var(--accent); }
   .cchip.in_progress { background:var(--warn-soft); color:var(--warn); }
   .cchip.done { background:var(--good-soft,#e4f5ec); color:var(--good,#12925a); }
-  .cmore { font-size:10.5px; color:var(--text-muted); cursor:pointer; font-weight:600; }
+  .cmore { font-size:10.5px; color:var(--accent); cursor:pointer; font-weight:700; text-decoration:underline; }
+  .cmore:hover { color:var(--accent); opacity:.8; }
+  .daylist { display:flex; flex-direction:column; gap:14px; margin-top:8px; max-height:60vh; overflow-y:auto; }
+  .dayteam { display:flex; flex-direction:column; gap:6px; }
+  .dayteam-head { font-size:13px; font-weight:700; color:var(--text); padding:2px 2px 4px; border-bottom:1px solid var(--border); }
+  .dayteam-head .dayteam-cnt { color:var(--accent); margin-left:4px; }
+  .dayrow { display:flex; align-items:center; gap:10px; padding:9px 11px; border:1px solid var(--border); border-radius:9px; cursor:pointer; background:var(--surface); }
+  .dayrow:hover { border-color:var(--accent); background:var(--accent-soft); }
+  .dayrow .dayrow-id { font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .dayrow .dayrow-sum { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .dayrow .dayrow-qty { white-space:nowrap; font-weight:600; }
   @media (max-width:640px){ .ccell{ min-height:72px; } .cchip{ font-size:10px; padding:2px 5px; } .callegend{ margin-left:0; } }
 
   /* ===== 칸반 ===== */
@@ -1413,6 +1423,7 @@
   let todayOnly = false;
   let viewMode = "calendar";    // 기본을 캘린더로 (list | calendar | kanban 전환)
   let calCur = null;            // 캘린더가 보고 있는 달 {y, m}
+  let calByDate = {};           // 캘린더에 지금 표시된 날짜별 요청 목록(필터 반영) — '+N건 더' 팝업이 사용
   const expanded = new Set();
   const selected = new Set();   // 엑셀로 뽑을 주문건(요청번호) 선택 목록
 
@@ -1967,6 +1978,7 @@
     const y = calCur.y, m = calCur.m;
     const byDate = {};
     rows.forEach(r => { const d = r.desiredDate; if(d){ (byDate[d] = byDate[d] || []).push(r); } });
+    calByDate = byDate;   // '+N건 더' 팝업이 캘린더와 똑같은(필터 반영된) 목록을 쓰도록 저장
     const first = new Date(y, m, 1).getDay();
     const days = new Date(y, m + 1, 0).getDate();
     const prevDays = new Date(y, m, 0).getDate();
@@ -1981,11 +1993,16 @@
       let chips = "";
       if(!c.out && byDate[key]){
         const list = byDate[key];
-        list.slice(0, 3).forEach(r => {
-          const label = esc(r.team || r.requester || r.requestId);
-          chips += `<div class="cchip ${r.status}" data-openid="${esc(r.requestId)}" title="${esc(r.requestId)} · ${esc(productSummary(r))}">${label}</div>`;
+        // 팀별로 묶어서 "팀명 N건" 칩 하나씩 (같은 팀이 여러 건이어도 한 줄로 정리)
+        const teams = {};
+        list.forEach(r => { const t = (r.team || r.requester || "기타"); (teams[t] = teams[t] || []).push(r); });
+        const teamNames = Object.keys(teams);
+        teamNames.slice(0, 4).forEach(t => {
+          const items = teams[t];
+          const cls = calDominantStatus(items);   // 대기>진행중>완료 순으로 대표 색
+          chips += `<div class="cchip ${cls}" data-openday="${key}" data-team="${encodeURIComponent(t)}" title="${esc(t)} ${items.length}건 — 누르면 목록이 열려요">${esc(t)} <b>${items.length}</b>건</div>`;
         });
-        if(list.length > 3) chips += `<div class="cmore" data-openid="${esc(list[3].requestId)}">+${list.length - 3}건 더</div>`;
+        if(teamNames.length > 4) chips += `<div class="cmore" data-openday="${key}">+${teamNames.length - 4}팀 더</div>`;
       }
       gridHtml += `<div class="ccell${c.out ? " out" : ""}${isToday ? " ctodaycell" : ""}"><div class="cdaynum">${c.d}</div>${chips}</div>`;
     });
@@ -2008,7 +2025,71 @@
       else { let nm = calCur.m + (act === "next" ? 1 : -1), ny = calCur.y; if(nm < 0){ nm = 11; ny--; } if(nm > 11){ nm = 0; ny++; } calCur = { y:ny, m:nm }; }
       renderTable();
     }));
-    box.querySelectorAll("[data-openid]").forEach(el => el.addEventListener("click", () => openRequestDetail(el.dataset.openid)));
+    box.querySelectorAll("[data-openid]").forEach(el => el.addEventListener("click", (e) => { e.stopPropagation(); openRequestDetail(el.dataset.openid); }));
+    // 팀 칩을 누르면 그 팀의 그날 요청 목록, '+N팀 더'를 누르면 그날 전체(팀별) 목록을 보여줍니다.
+    box.querySelectorAll("[data-openday]").forEach(el => el.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const t = el.dataset.team ? decodeURIComponent(el.dataset.team) : null;
+      openDayList(el.dataset.openday, t);
+    }));
+  }
+
+  // 그날 요청들의 대표 상태색: 대기(있으면) > 진행중 > 완료 순
+  function calDominantStatus(items){
+    if(items.some(r => r.status === "pending")) return "pending";
+    if(items.some(r => r.status === "in_progress")) return "in_progress";
+    return "done";
+  }
+
+  // 캘린더에서 특정 날짜(출고 희망일)의 요청 전체를 목록으로 보여주는 팝업.
+  // 각 줄을 누르면 그 요청 상세가 열립니다.
+  function openDayList(dateKey, team){
+    if(!dateKey) return;
+    let list = (calByDate && calByDate[dateKey]) ? calByDate[dateKey] : DATA.filter(r => r.desiredDate === dateKey);
+    if(team) list = list.filter(r => (r.team || r.requester || "기타") === team);
+    if(!list.length) return;
+    let ov = document.getElementById("dayModal");
+    if(!ov){
+      ov = document.createElement("div");
+      ov.id = "dayModal";
+      ov.className = "reqmodal-overlay";
+      ov.innerHTML = '<div class="reqmodal-panel" id="dayModalPanel"></div>';
+      document.body.appendChild(ov);
+      ov.addEventListener("click", e => { if(e.target.id === "dayModal") ov.style.display = "none"; });
+      document.addEventListener("keydown", e => { if(e.key === "Escape") ov.style.display = "none"; });
+    }
+    const panel = document.getElementById("dayModalPanel");
+
+    // 팀별로 묶어서 보여줍니다(특정 팀만 열었으면 그 팀 그룹만).
+    const groups = {};
+    list.forEach(r => { const t = (r.team || r.requester || "기타"); (groups[t] = groups[t] || []).push(r); });
+    const rowHtml = (r) => `
+      <div class="dayrow" data-openid="${esc(r.requestId)}" tabindex="0">
+        <span class="statuspill ${r.status}">${STATUS_LABEL[r.status] || r.status}</span>
+        <span class="dayrow-id">${esc(r.requestId)}</span>
+        <span class="dayrow-sum" title="${esc(productSummary(r))}">${esc(productSummary(r)) || "-"}</span>
+        <span class="dayrow-qty num">${totalQty(r) ?? "-"}개</span>
+      </div>`;
+    const groupsHtml = Object.keys(groups).map(t => `
+      <div class="dayteam">
+        <div class="dayteam-head">${esc(t)} <span class="dayteam-cnt">${groups[t].length}건</span></div>
+        ${groups[t].map(rowHtml).join("")}
+      </div>`).join("");
+
+    const titleTeam = team ? ` · ${esc(team)}` : "";
+    panel.innerHTML =
+      `<div class="reqmodal-head">
+        <strong style="margin-right:auto;font-size:15px;color:var(--text);">📅 ${esc(dateKey)}${titleTeam} · 출고 희망 ${list.length}건</strong>
+        <button type="button" class="btn ghost small" id="dmClose">닫기 ✕</button>
+      </div>
+      <div class="daylist">${groupsHtml}</div>`;
+    ov.style.display = "flex";
+    panel.querySelector("#dmClose").onclick = () => { ov.style.display = "none"; };
+    panel.querySelectorAll("[data-openid]").forEach(el => {
+      const open = () => { ov.style.display = "none"; openRequestModal(el.dataset.openid); };
+      el.addEventListener("click", open);
+      el.addEventListener("keydown", e => { if(e.key === "Enter" || e.key === " "){ e.preventDefault(); open(); } });
+    });
   }
 
   // ===== 칸반 보기 =====
