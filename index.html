@@ -634,6 +634,8 @@
   .banner.warn { background: var(--warn-soft); color: var(--warn); }
   .banner.error { background: var(--danger-soft); color: var(--danger); }
   .banner.ok { background: var(--accent-soft); color: var(--accent); }
+  .btn.rowMemoBtn { border:1px solid var(--border); }
+  .btn.rowMemoBtn.has-memo { background: var(--warn-soft); color: var(--warn); border-color: var(--warn); font-weight: 700; }
   .banner .bspacer { margin-left: auto; display: flex; gap: 8px; }
 
   .howto {
@@ -1246,6 +1248,7 @@
       trackingNo: r.trackingNo || "",
       trackingNotified: !!r.trackingNotified,
       requestType: r.requestType || "출고요청",
+      memo: r.memo || "",              // 물류팀 특이사항 메모(진행상황 모니터링용)
       source: source,
     };
   }
@@ -1659,6 +1662,13 @@
         <div class="dcard-title">📦 상품 정보</div>
         ${productTableHtml(r)}
       </div>
+
+      ${(safety || r.memo) ? `<div class="dcard pad">
+        <div class="dcard-title">🗒 물류 메모 (특이사항)
+          <button type="button" class="btn ghost small" data-memo="${esc(r.requestId)}" style="margin-left:6px;">메모 편집</button>
+        </div>
+        <div class="v" style="white-space:pre-wrap;line-height:1.55;">${r.memo ? esc(r.memo) : '<span class="v empty">아직 메모가 없어요 — 관리 열의 📝 메모 버튼이나 위 버튼으로 특이사항을 적어두면 진행상황을 함께 볼 수 있어요.</span>'}</div>
+      </div>` : ""}
 
       ${safety ? "" : `<div class="dcard pad">
         <div class="dcard-title">🚚 수령 정보</div>
@@ -2154,6 +2164,7 @@
       const cb = panel.querySelector("#rmCancel"); if(cb) cb.onclick = () => { closeReqModal(); cancelRequest(sr); };
     }
     panel.querySelectorAll("[data-copy]").forEach(b => b.onclick = () => { const rr = DATA.find(x => x.requestId === b.dataset.copy); if(rr) copyText(slackText(rr), b); });
+    panel.querySelectorAll("[data-memo]").forEach(b => b.onclick = () => openMemo(b.dataset.memo));
     panel.querySelectorAll(".linkOrderBtn").forEach(b => b.onclick = () => {
       const input = panel.querySelector(`.linkSeqInput[data-id="${CSS.escape(b.dataset.id)}"]`);
       const seq = input ? input.value : prompt("이지어드민 관리번호를 입력해 주세요");
@@ -2207,6 +2218,7 @@
         <td class="actioncell">
           ${r.status === "cancelled" ? "-" : `
             ${activeView === "safety" ? `<button type="button" class="btn small safetyStatusBtn" data-id="${esc(r.requestId)}" data-status="${r.status}" title="누르면 다음 단계로 넘어가요 (대기 → 진행중 → 완료)">${SAFETY_NEXT_LABEL[r.status] || "진행중으로"}</button>` : ""}
+            ${activeView === "safety" ? `<button type="button" class="btn small rowMemoBtn${r.memo ? " has-memo" : ""}" data-id="${esc(r.requestId)}" title="${r.memo ? esc(r.memo) : "특이사항 메모 작성"}">${r.memo ? "📝 메모•" : "📝 메모"}</button>` : ""}
             <button type="button" class="btn ghost small rowEditBtn" data-id="${esc(r.requestId)}">수정</button>
             <button type="button" class="btn ghost small rowCancelBtn" data-id="${esc(r.requestId)}">취소</button>
           `}
@@ -2851,6 +2863,12 @@
     const safetyBtn = e.target.closest(".safetyStatusBtn");
     if (safetyBtn) { setSafetyStatus(safetyBtn.dataset.id, safetyBtn.dataset.status); return; }
 
+    const memoBtn = e.target.closest(".rowMemoBtn");
+    if (memoBtn) { openMemo(memoBtn.dataset.id); return; }
+
+    const memoEdit = e.target.closest("[data-memo]");
+    if (memoEdit) { e.stopPropagation(); openMemo(memoEdit.dataset.memo); return; }
+
     const linkBtn = e.target.closest(".linkOrderBtn");
     if (linkBtn) {
       const id = linkBtn.dataset.id;
@@ -2859,6 +2877,56 @@
       if (seq != null) linkOrder(id, seq);
     }
   });
+
+  // [물류 메모] 요청건마다 특이사항(발주 진행상황 등)을 수기로 적어 저장 → 다른 팀도 볼 수 있게 서버에 보관
+  async function openMemo(sr){
+    const r = DATA.find(x => x.requestId === sr);
+    if(!r) return;
+    let ov = document.getElementById("memoModal");
+    if(!ov){
+      ov = document.createElement("div");
+      ov.id = "memoModal";
+      ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;";
+      ov.innerHTML = `
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:460px;width:100%;padding:20px;box-shadow:0 12px 44px rgba(0,0,0,.22);">
+          <div id="memoTitle" style="font-size:16px;font-weight:700;margin-bottom:4px;color:var(--text);"></div>
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px;line-height:1.5;">발주 진행상황·특이사항을 적어두면 물류팀과 타팀이 함께 보고 진행 상황을 확인할 수 있어요.</div>
+          <textarea id="memoText" rows="6" placeholder="예: 8/20 발주 예정 / 비시즌이라 입고 지연 예상 / 공장 재고 확인 중" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface-alt,#fff);color:var(--text);resize:vertical;font-family:inherit;line-height:1.5;"></textarea>
+          <div id="memoErr" style="font-size:12px;color:var(--danger);min-height:16px;margin:6px 0;"></div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button id="memoCancel" type="button" class="btn ghost">닫기</button>
+            <button id="memoSave" type="button" class="btn primary">저장</button>
+          </div>
+        </div>`;
+      document.body.appendChild(ov);
+      ov.addEventListener("click", e => { if(e.target.id === "memoModal") ov.style.display = "none"; });
+      document.addEventListener("keydown", e => { if(e.key === "Escape" && ov.style.display !== "none") ov.style.display = "none"; });
+    }
+    ov.querySelector("#memoTitle").textContent = sr + " · 특이사항 메모";
+    const ta = ov.querySelector("#memoText");
+    ta.value = r.memo || "";
+    ov.querySelector("#memoErr").textContent = "";
+    ov.style.display = "flex";
+    setTimeout(() => ta.focus(), 30);
+    const saveBtn = ov.querySelector("#memoSave");
+    const cancelBtn = ov.querySelector("#memoCancel");
+    cancelBtn.onclick = () => { ov.style.display = "none"; };
+    saveBtn.onclick = async () => {
+      const memo = ta.value;
+      saveBtn.disabled = true; const old = saveBtn.textContent; saveBtn.textContent = "저장 중...";
+      try{
+        const res = await fetch(API_CREATE + "/" + encodeURIComponent(sr) + "/memo", {
+          method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ memo })
+        });
+        if(!res.ok) throw new Error("서버 응답 " + res.status);
+        r.memo = memo;            // 화면에 바로 반영
+        ov.style.display = "none";
+        renderTable();
+      }catch(err){
+        ov.querySelector("#memoErr").textContent = "저장 실패: " + (err.message || "연결 오류");
+      }finally{ saveBtn.disabled = false; saveBtn.textContent = old; }
+    };
+  }
 
   // ===== 물류팀 변경 알림 (CS창 스타일) =====
   // 이미 진행중/완료인 건을 요청자가 수정·취소하면 여기에 뜹니다. 직접 '확인'을 눌러야 사라집니다.
