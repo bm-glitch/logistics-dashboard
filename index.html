@@ -274,8 +274,8 @@
   .stat .sub { font-size: 11.5px; color: var(--text-muted); margin-top: 3px; }
 
   /* Two-column panels */
-  .panels { display: grid; grid-template-columns: 1.5fr 1fr; gap: 16px; margin-bottom: 22px; }
-  @media (max-width: 980px) { .panels { grid-template-columns: 1fr; } }
+  /* '업무 진행률' 패널을 없애서 '오늘의 업무' 하나만 남았습니다 → 한 단으로 넓게 */
+  .panels { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 22px; }
   .panel {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -707,6 +707,111 @@
     .tablecard{ min-width:0; max-width:100%; }
     .tablescroll{ min-width:0; max-width:100%; -webkit-overflow-scrolling:touch; }
   }
+
+  /* =======================================================================
+     v11 추가 스타일 — ① 배너 정리 ② 상태 탭 배지 ③ 페이지 이동 ④ 원본파일 미리보기
+     ======================================================================= */
+
+  /* ① 목록 중심 화면(전체 요청·완료·취소·안전재고)에서는 "확인이 필요 없는" 지표를 감춥니다.
+        - 업무 진행률(도넛)·오늘의 업무 패널
+        - 전체 요청·완료 카드 (시간이 지나면 계속 쌓이기만 하는 숫자)
+        대시보드 화면에서는 지금처럼 전부 보입니다. */
+  body.lean-banner .panels{ display:none !important; }
+  body.lean-banner .howto{ display:none !important; }
+  body.hide-cumulative .stat.total,
+  body.hide-cumulative .stat.done{ display:none !important; }
+
+  /* ② 상태 탭 안의 건수 배지 */
+  .tab .tbadge{
+    display:inline-block; min-width:17px; margin-left:5px; padding:1px 5px;
+    border-radius:9px; font-size:11px; font-weight:800; line-height:1.45;
+    font-variant-numeric:tabular-nums; text-align:center;
+    background:var(--surface-alt,#eef1f6); color:var(--text-muted);
+  }
+  .tab.active .tbadge{ background:var(--accent); color:#fff; }
+  .tab .tbadge.warn{ background:#FDECEA; color:#C0392B; }
+  .tab.active .tbadge.warn{ background:#C0392B; color:#fff; }
+
+  /* 상태 칸을 눌러서 바꾸는 버튼(안전재고 전용) — 알약 모양 그대로 유지 */
+  button.statuspill{
+    appearance:none; -webkit-appearance:none; font-family:inherit; font-size:inherit;
+    cursor:pointer; border:1px dashed transparent;
+  }
+  button.statuspill:hover{ filter:brightness(.94); border-color:currentColor; }
+  button.statuspill .arrow{ opacity:.55; margin-left:3px; font-size:11px; }
+
+  /* ③ 페이지 이동(페이지네이션) */
+  .pager{
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    flex-wrap:wrap; padding:14px 12px; border-top:1px solid var(--border);
+  }
+  .pager .pinfo{ margin-right:auto; font-size:12.5px; color:var(--text-muted); font-variant-numeric:tabular-nums; }
+  .pager button{
+    appearance:none; cursor:pointer; font-family:inherit; font-size:13px; font-weight:700;
+    min-width:34px; height:32px; padding:0 9px; border-radius:8px;
+    border:1px solid var(--border); background:var(--surface); color:var(--text);
+    font-variant-numeric:tabular-nums;
+  }
+  .pager button:hover:not(:disabled){ border-color:var(--accent); color:var(--accent); }
+  .pager button.on{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  .pager button:disabled{ opacity:.4; cursor:not-allowed; }
+  .pager .gap{ color:var(--text-muted); padding:0 2px; }
+  .pager select{
+    font-family:inherit; font-size:12.5px; padding:5px 8px; border-radius:8px;
+    border:1px solid var(--border); background:var(--surface); color:var(--text); cursor:pointer;
+  }
+
+  /* ④ 상세보기 2단 구성 — 왼쪽 요청 정보 / 오른쪽 요청자 원본 파일 */
+  .detailgrid{ display:grid; grid-template-columns:minmax(0,1fr) minmax(300px,420px); gap:14px; align-items:start; }
+  .detailgrid > div{ min-width:0; }
+  @media (max-width:1180px){ .detailgrid{ grid-template-columns:1fr; } }
+  .srcprev{ position:sticky; top:8px; }
+  .srcprev .srcfile{ margin-bottom:12px; }
+  .srcprev .srcfile:last-child{ margin-bottom:0; }
+  .srcprev .srcname{
+    display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700;
+    color:var(--text); margin-bottom:6px; word-break:break-all;
+  }
+  .srcprev .srcname a{ color:var(--accent); text-decoration:underline; font-weight:600; font-size:11.5px; flex:none; }
+  .srcprev .srcwrap{ max-height:330px; overflow:auto; border:1px solid var(--border); border-radius:8px; background:var(--surface-alt,#fafbfc); }
+  .srcprev table{ border-collapse:collapse; width:max-content; min-width:100%; font-size:11.5px; }
+  .srcprev th, .srcprev td{
+    border-bottom:1px solid var(--border); border-right:1px solid var(--border);
+    padding:4px 7px; text-align:left; white-space:nowrap; max-width:220px;
+    overflow:hidden; text-overflow:ellipsis; color:var(--text);
+  }
+  .srcprev thead th{
+    position:sticky; top:0; z-index:1; background:var(--surface); font-weight:800;
+    color:var(--text); box-shadow:inset 0 -1px 0 var(--border);
+  }
+  .srcprev tbody tr:nth-child(even){ background:rgba(127,127,127,.045); }
+  .srcprev .rowno{ color:var(--text-muted); font-variant-numeric:tabular-nums; text-align:right; }
+  .srcprev .srcnote{ font-size:11.5px; color:var(--text-muted); line-height:1.5; margin-top:7px; }
+  .srcprev .srcmore{ font-size:11.5px; color:var(--text-muted); padding:6px 8px; }
+  /* 원본에서 이 요청과 관계없는 줄(다중 업로드로 만들어진 다른 요청건)은 흐리게 */
+  .srcprev tbody tr.other td{ opacity:.38; }
+
+  /* 원본 ↔ 요청서 자동 대조 카드 */
+  .cmp{ border:1px solid var(--border); border-radius:10px; padding:10px 11px; margin-bottom:12px; background:var(--surface); }
+  .cmp-head{ display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-bottom:8px; }
+  .cmp-head .t{ font-size:12.5px; font-weight:800; color:var(--text); }
+  .cmp-badge{ font-size:11px; font-weight:800; padding:2px 8px; border-radius:9px; }
+  .cmp-badge.ok{ background:#E7F6EC; color:#1B7F45; }
+  .cmp-badge.warn{ background:#FDECEA; color:#C0392B; }
+  .cmp-row{ display:grid; grid-template-columns:64px minmax(0,1fr) 16px; gap:6px; align-items:start;
+            font-size:11.5px; padding:4px 0; border-top:1px dashed var(--border); }
+  .cmp-row:first-of-type{ border-top:0; }
+  .cmp-row .k{ color:var(--text-muted); font-weight:700; white-space:nowrap; font-size:11px; letter-spacing:-.2px; }
+  .cmp-row .v{ min-width:0; color:var(--text); line-height:1.5; word-break:break-all; }
+  .cmp-row .v .was{ display:block; color:#C0392B; }
+  .cmp-row .v .now{ display:block; color:var(--text-muted); }
+  .cmp-row .s{ text-align:right; font-size:11px; }
+  .cmp-sub{ font-size:11px; color:var(--text-muted); margin:8px 0 4px; font-weight:700; }
+  .cmp-item{ border-top:1px dashed var(--border); padding:5px 0; font-size:11.5px; line-height:1.5; }
+  .cmp-item .lbl{ display:inline-block; min-width:38px; color:var(--text-muted); font-weight:700; }
+  .cmp-item.bad{ background:#FDECEA33; }
+  .cmp-item .qtybad{ color:#C0392B; font-weight:800; }
+  .cmp-code{ font-variant-numeric:tabular-nums; color:var(--accent); }
 </style>
 
 <div class="app">
@@ -830,23 +935,9 @@
           </div>
           <div id="todayList"></div>
         </div>
-        <div class="panel">
-          <div class="panel-head"><span class="title">업무 진행률</span></div>
-          <div class="donut-wrap">
-            <svg width="108" height="108" viewBox="0 0 108 108" id="donutSvg" style="flex-shrink:0;">
-              <circle cx="54" cy="54" r="42" fill="none" stroke="var(--surface-alt)" stroke-width="14"/>
-              <g id="donutSegments" transform="rotate(-90 54 54)"></g>
-              <text id="donutPct" x="54" y="51" text-anchor="middle" class="num" style="font-size:19px; font-weight:700; fill: var(--text);">0%</text>
-              <text x="54" y="67" text-anchor="middle" style="font-size:10px; fill: var(--text-muted);">진행률</text>
-            </svg>
-            <div class="legend">
-              <div class="row"><span class="dot" style="background:var(--good)"></span><span class="name">완료</span><span class="n num" id="legendDone">0</span></div>
-              <div class="row"><span class="dot" style="background:var(--warn)"></span><span class="name">진행중</span><span class="n num" id="legendProgress">0</span></div>
-              <div class="row"><span class="dot" style="background:var(--danger)"></span><span class="name">미완료</span><span class="n num" id="legendNew">0</span></div>
-            </div>
-          </div>
-        </div>
       </div>
+      <!-- '업무 진행률'(도넛) 패널은 없앴습니다 — 완료가 계속 쌓이기만 하는 지표라
+           대시보드에서도 확인할 일이 없다는 피드백 반영. (2026-08-27) -->
 
       <!-- ============ 요청서 작성 ============ -->
       <div class="formpage" id="formSection" style="display:none;">
@@ -1072,16 +1163,18 @@
           <span class="title" id="tableTitle">최근 요청</span>
           <button class="link" id="clearTodayFilter" style="display:none;">&larr; 대시보드로 돌아가기</button>
           <div class="tabs" id="statusTabs">
-            <button class="tab active" data-status="">전체</button>
-            <button class="tab" data-status="pending">대기</button>
-            <button class="tab" data-status="in_progress">진행중</button>
+            <button class="tab active" data-status="open" title="아직 처리가 끝나지 않은 건만 모아 봐요 (대기 + 진행중)">진행 필요<span class="tbadge warn" id="tabOpenCount">0</span></button>
+            <button class="tab" data-status="pending">대기<span class="tbadge" id="tabPendingCount">0</span></button>
+            <button class="tab" data-status="in_progress">진행중<span class="tbadge" id="tabProgressCount">0</span></button>
             <button class="tab" data-status="done">완료</button>
+            <button class="tab" data-status="">전체</button>
           </div>
           <div class="viewswitch" id="viewSwitch" title="보기 방식">
             <button type="button" class="vbtn on" data-vm="calendar">📅 캘린더</button>
             <button type="button" class="vbtn" data-vm="list">☰ 목록</button>
             <button type="button" class="vbtn" data-vm="kanban">🗂 칸반</button>
           </div>
+          <select class="selectfilter" id="teamFilter" title="요청팀으로 골라 봐요"><option value="">전체 팀</option></select>
           <select class="selectfilter" id="assigneeFilter"><option value="">담당자 전체</option></select>
           <select class="selectfilter" id="channelFilter"><option value="">판매처 전체</option></select>
           <button type="button" class="btn ghost" id="bulkEditBtn" title="왼쪽 체크박스로 요청 1건을 고른 뒤 누르면 그 요청을 수정해요" disabled style="opacity:.5;cursor:not-allowed;border-color:var(--accent);color:var(--accent);">
@@ -1093,7 +1186,6 @@
           <button type="button" class="btn ghost" id="bulkDeleteBtn" title="왼쪽 체크박스로 고른 요청들을 한 번에 삭제(취소)해요" disabled style="opacity:.5;cursor:not-allowed;border-color:var(--danger,#d9534f);color:var(--danger,#d9534f);">
             🗑 선택 삭제 <span id="bulkDelCount" style="font-variant-numeric:tabular-nums;">0</span>
           </button>
-          <div class="chipfilters" id="teamChips"></div>
         </div>
         <div class="tablescroll" id="listView">
           <table class="reqtable">
@@ -1122,6 +1214,7 @@
           </table>
           <div class="table-empty" id="tableEmpty" style="display:none;">표시할 요청이 없어요</div>
         </div>
+        <div class="pager" id="pager" style="display:none;"></div>
         <div id="calendarView" style="display:none;"></div>
         <div id="kanbanView" style="display:none;"></div>
       </div>
@@ -1429,7 +1522,9 @@
     return r.channels.map(c => (c === "기타" && r.channelOther) ? `기타(${r.channelOther})` : c).join(", ");
   }
 
-  let activeStatus = "";
+  // "" = 전체 / "open" = 대기+진행중(진행 필요) / "pending" / "in_progress" / "done"
+  // 기본값은 '진행 필요' — 완료건이 계속 쌓여 목록을 덮는 문제를 없앴습니다. (팀장님 피드백 ①)
+  let activeStatus = "open";
   let activeTeam = null;
   let activeAssignee = null;
   let activeChannel = null;
@@ -1437,6 +1532,9 @@
   let searchTerm = "";
   let todayOnly = false;
   let viewMode = "calendar";    // 기본을 캘린더로 (list | calendar | kanban 전환)
+  let PAGE = 1;                 // 목록 보기의 현재 페이지 (1부터)
+  let PAGE_SIZE = 30;           // 한 페이지에 보여줄 요청 건수
+  let _pageSig = "";            // 필터가 바뀌면 1페이지로 되돌리기 위한 비교값
   let calCur = null;            // 캘린더가 보고 있는 달 {y, m}
   let calByDate = {};           // 캘린더에 지금 표시된 날짜별 요청 목록(필터 반영) — '+N건 더' 팝업이 사용
   const expanded = new Set();
@@ -1532,6 +1630,14 @@
     document.getElementById("statOverdue").innerHTML = c.overdue + '<span class="unit">건</span>';
     document.getElementById("statMissing").innerHTML = c.missing + '<span class="unit">건</span>';
 
+    // 0건인 경고 카드(기한 초과·정보 누락)는 어느 화면에서든 감춥니다.
+    // — "확인할 필요 없거나 활성화되지 않는 건 가리자"는 피드백 반영.
+    //   (카드 하나만 둘째 줄에 덜렁 남는 것도 함께 없어집니다)
+    const card = (cls) => document.querySelector(".stat." + cls);
+    const toggleCard = (cls, n) => { const el = card(cls); if (el) el.style.display = n ? "" : "none"; };
+    toggleCard("overdue", c.overdue);
+    toggleCard("missing", c.missing);
+
     document.getElementById("bellCount").textContent = c.overdue;
     document.getElementById("navAllBadge").textContent = c.overdue > 0 ? c.overdue : "";
     document.getElementById("navAllBadge").style.display = c.overdue > 0 ? "" : "none";
@@ -1546,34 +1652,7 @@
       safetyBadge.style.display = c.safety > 0 ? "" : "none";
     }
 
-    // donut
-    const r = 42, circumference = 2 * Math.PI * r;
-    const segs = [
-      { n: c.done, color: "var(--good)" },
-      { n: c.progress, color: "var(--warn)" },
-      { n: c.pending, color: "var(--danger)" },
-    ];
-    let offset = 0;
-    const g = document.getElementById("donutSegments");
-    g.innerHTML = "";
-    segs.forEach(s => {
-      if (!s.n) return;
-      const frac = c.total ? s.n / c.total : 0;
-      const len = frac * circumference;
-      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      circle.setAttribute("cx", "54"); circle.setAttribute("cy", "54"); circle.setAttribute("r", r);
-      circle.setAttribute("fill", "none");
-      circle.setAttribute("stroke", s.color);
-      circle.setAttribute("stroke-width", "14");
-      circle.setAttribute("stroke-dasharray", `${len} ${circumference - len}`);
-      circle.setAttribute("stroke-dashoffset", -offset);
-      g.appendChild(circle);
-      offset += len;
-    });
-    document.getElementById("donutPct").textContent = pct(c.done) + "%";
-    document.getElementById("legendDone").textContent = c.done;
-    document.getElementById("legendProgress").textContent = c.progress;
-    document.getElementById("legendNew").textContent = c.pending;
+    // '업무 진행률' 도넛은 화면에서 없앴으므로 그리지 않습니다. (2026-08-27)
   }
 
   function renderToday() {
@@ -1594,15 +1673,36 @@
       </div>`).join("");
   }
 
+  /** 요청팀 필터 — 팀이 늘어나 화면이 좌우로 길어지던 칩 목록을 드롭다운으로 바꿨습니다.
+   *  (팀장님 피드백 ①) 이름은 그대로 둬서 기존 호출부를 건드리지 않아요. */
   function renderTeamChips() {
-    const teams = [...new Set(DATA.map(r => r.team).filter(Boolean))];
-    const el = document.getElementById("teamChips");
-    if (!teams.length) { el.innerHTML = ""; return; }
-    el.innerHTML = [`<button class="chip${activeTeam === null ? " active" : ""}" data-team="">전체 팀</button>`]
-      .concat(teams.map(t => `<button class="chip${activeTeam === t ? " active" : ""}" data-team="${esc(t)}">${esc(t)}</button>`)).join("");
-    el.querySelectorAll(".chip").forEach(btn => {
-      btn.addEventListener("click", () => { activeTeam = btn.dataset.team || null; clearTodayFilter(); renderTeamChips(); renderTable(); });
-    });
+    const el = document.getElementById("teamFilter");
+    if (!el) return;
+    const teams = [...new Set(DATA.map(r => r.team).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ko"));
+    el.innerHTML = '<option value="">전체 팀</option>'
+      + teams.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join("");
+    el.value = teams.includes(activeTeam) ? activeTeam : "";
+    if (el.value === "") activeTeam = null;
+  }
+
+  /** 상태 탭의 건수 배지 — 지금 화면(팀·담당자·판매처·검색 필터까지 반영)에서 대기/진행중이 몇 건인지 보여줍니다. */
+  function renderStatusTabCounts() {
+    // 상태 조건만 제외한 나머지 필터를 그대로 적용해서 셉니다.
+    const keep = activeStatus;
+    activeStatus = "";
+    let rows;
+    try { rows = getFilteredRows(); } finally { activeStatus = keep; }
+    const pending = rows.filter(r => r.status === "pending").length;
+    const progress = rows.filter(r => r.status === "in_progress").length;
+    const set = (id, n, hideWhenZero) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = n;
+      el.style.display = (hideWhenZero && !n) ? "none" : "";
+    };
+    set("tabOpenCount", pending + progress, false);
+    set("tabPendingCount", pending, false);
+    set("tabProgressCount", progress, false);
   }
 
   function renderAssigneeFilter() {
@@ -1690,6 +1790,9 @@
         </span>
       </div>
 
+      <div class="detailgrid" data-detailgrid="${esc(r.requestId)}">
+      <div>
+
       <div class="dcard pad">
         <div class="dcard-title">📦 상품 정보</div>
         ${productTableHtml(r)}
@@ -1734,6 +1837,15 @@
       <div class="dcard pad">
         <div class="dcard-title">🕘 변경 이력</div>
         <div class="history-list" data-history-list="${esc(r.requestId)}"><span class="v empty" style="font-size:13px;color:var(--text-muted);">불러오는 중…</span></div>
+      </div>
+
+      </div>
+      <div>
+        <div class="dcard pad srcprev" data-srcprev="${esc(r.requestId)}">
+          <div class="dcard-title">📄 요청자가 올린 원본 파일</div>
+          <div class="srcprev-body"><span class="v empty" style="font-size:13px;color:var(--text-muted);">불러오는 중…</span></div>
+        </div>
+      </div>
       </div>
     </div>`;
   }
@@ -1859,19 +1971,292 @@
   }
 
   /** 상세보기의 첨부파일 영역을 서버에서 불러와 다운로드 링크로 채웁니다. (행을 펼칠 때 1회 호출) */
+  // 요청별 첨부 목록 캐시 — 첨부 링크와 원본파일 미리보기가 같은 결과를 함께 씁니다. (요청 1번만)
+  const ATTACH_PROMISE = {};
+  function fetchAttachList(sr) {
+    if (!ATTACH_PROMISE[sr]) {
+      ATTACH_PROMISE[sr] = fetch(API_BASE + "/api/attachments/by-request/" + encodeURIComponent(sr))
+        .then(res => { if (!res.ok) throw new Error("서버 응답 " + res.status); return res.json(); })
+        .catch(e => { delete ATTACH_PROMISE[sr]; throw e; });   // 실패하면 다음에 다시 시도
+    }
+    return ATTACH_PROMISE[sr];
+  }
+
   async function loadAttachmentsInto(sr) {
     const box = document.querySelector(`[data-attach-list="${CSS.escape(sr)}"]`);
     if (!box || box.dataset.loaded === "1") return;
     box.dataset.loaded = "1";
     try {
-      const res = await fetch(API_BASE + "/api/attachments/by-request/" + encodeURIComponent(sr));
-      if (!res.ok) throw new Error("서버 응답 " + res.status);
-      const list = await res.json();
+      const list = await fetchAttachList(sr);
       box.innerHTML = renderAttachLinks(list);
     } catch (e) {
       box.dataset.loaded = "";  // 실패하면 다음에 다시 시도할 수 있게
       box.innerHTML = `<span style="font-size:13px;color:var(--danger);">첨부를 불러오지 못했어요. 잠시 후 다시 열어 주세요.</span>`;
     }
+  }
+
+  /* ===================================================================
+     ⑤ 요청자 원본 파일 미리보기 (다운로드 없이 눈으로 대조)
+     요청자가 발주서/다중배송 양식을 올려 만든 요청서는, 우리가 자동 매칭한
+     상품·수령정보가 원본과 다를 수 있어요. 상세보기 오른쪽에 원본 표를
+     그대로 띄워서 바로 대조할 수 있게 합니다.
+     =================================================================== */
+  const PREVIEW_MAX_ROWS = 60;   // 화면에 그릴 최대 줄 수 (나머지는 "…" 안내)
+  const PREVIEW_MAX_COLS = 14;   // 화면에 그릴 최대 칸 수
+  const PREVIEWABLE = /\.(xlsx|xlsm|xls|csv|tsv|txt)$/i;
+
+  const SRCPREV_HTML = {};   // 요청번호 → 미리보기 HTML (한 번 만들면 다시 쓰기)
+
+  async function loadSourcePreviewInto(sr) {
+    // 같은 요청이 표와 팝업에 동시에 열려 있을 수 있어, 화면에 있는 모든 미리보기 칸을 채웁니다.
+    const cards = [...document.querySelectorAll(`[data-srcprev="${CSS.escape(sr)}"]`)].filter(c => c.dataset.loaded !== "1");
+    if (!cards.length) return;
+    cards.forEach(c => { c.dataset.loaded = "1"; });
+    const grids = [...document.querySelectorAll(`[data-detailgrid="${CSS.escape(sr)}"]`)];
+    const paint = (html) => cards.forEach(c => { const b = c.querySelector(".srcprev-body"); if (b) b.innerHTML = html; });
+    const collapse = () => {
+      grids.forEach(g => { g.style.gridTemplateColumns = "1fr"; });
+      cards.forEach(c => { c.style.display = "none"; });
+    };
+
+    if (SRCPREV_HTML[sr] !== undefined) {
+      if (SRCPREV_HTML[sr] === "") collapse(); else paint(SRCPREV_HTML[sr]);
+      return;
+    }
+
+    let list = [];
+    try {
+      list = await fetchAttachList(sr);
+    } catch (e) {
+      cards.forEach(c => { c.dataset.loaded = ""; });
+      paint(`<span style="font-size:12.5px;color:var(--danger);">원본 파일 목록을 불러오지 못했어요.</span>`);
+      return;
+    }
+    if (!Array.isArray(list) || !list.length) { SRCPREV_HTML[sr] = ""; collapse(); return; }
+
+    paint(`<span style="font-size:12.5px;color:var(--text-muted);">원본 파일 ${list.length}개 읽는 중…</span>`);
+    const parts = [];
+    for (const a of list) {
+      const url = API_BASE + "/api/attachments/" + encodeURIComponent(a.id) + "/download";
+      const name = a.fileName || "첨부파일";
+      const head = `<div class="srcname"><span style="flex:1;min-width:0;">📄 ${esc(name)}</span>
+        <a href="${url}" target="_blank" rel="noopener">내려받기</a></div>`;
+      if (!PREVIEWABLE.test(name)) {
+        parts.push(`<div class="srcfile">${head}<div class="srcmore">이 형식은 화면 미리보기를 지원하지 않아요 — 내려받아서 확인해 주세요.</div></div>`);
+        continue;
+      }
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("서버 응답 " + res.status);
+        const buf = await res.arrayBuffer();
+        const req = DATA.find(x => x.requestId === sr);
+        parts.push(`<div class="srcfile">${head}${sheetsToHtml(buf, name, req)}</div>`);
+      } catch (e) {
+        parts.push(`<div class="srcfile">${head}<div class="srcmore" style="color:var(--danger);">파일을 읽지 못했어요 (${esc(e.message || "오류")}) — 내려받아 확인해 주세요.</div></div>`);
+      }
+    }
+    const html = parts.join("")
+      + `<div class="srcnote">요청서에 자동으로 매칭된 상품코드·옵션·수령정보가 이 원본과 같은지 대조해 주세요.
+         다르면 상품표의 <b>🔧 상품 정정</b>(물류대장) 또는 <b>✏️ 선택 수정</b>으로 고칠 수 있어요.</div>`;
+    SRCPREV_HTML[sr] = html;
+    paint(html);
+  }
+
+  /* -------------------------------------------------------------------
+     원본 ↔ 요청서 자동 대조
+     자동 매칭이 틀렸는데 그대로 출고되는 사고를 막기 위한 장치입니다.
+     ⚠️ 로 표시하는 건 "이름 규칙과 무관하게 확실히 문제인 것"만입니다.
+       · 수량이 다름 / 줄 수가 다름 (누락·중복)
+       · 수령자 이름·연락처·주소·배송메세지가 다름
+     상품명·상품코드는 타팀 발주서와 이지어드민 정식 명칭이 원래 달라서
+     (예: 원본은 바코드 88…, 요청서는 S코드) 틀렸다고 단정하지 않고
+     **나란히 보여주기만** 합니다. 판단은 사람이 하도록.
+     ------------------------------------------------------------------- */
+  const _nText = (s) => String(s == null ? "" : s).replace(/\s+/g, "")
+    .replace(/[\[\]()（）·.,\-_/#*★⭐"']/g, "").toLowerCase();
+  const _nPhone = (s) => String(s == null ? "" : s).replace(/\D/g, "");
+  const _nAddr = (s) => String(s == null ? "" : s).replace(/\s+/g, "")
+    .replace(/[()（）,.\-]/g, "").toLowerCase();
+  const _nQty = (s) => {
+    const m = String(s == null ? "" : s).replace(/[^\d.-]/g, "");
+    return m === "" ? null : Number(m);
+  };
+
+  /** 머리글에서 원하는 칸의 위치를 찾습니다. (정확히 같은 이름 → 포함하는 이름) */
+  function pickCol(header, names) {
+    const H = header.map(h => _nText(h));
+    for (const n of names) { const k = _nText(n); const i = H.indexOf(k); if (i >= 0) return i; }
+    for (const n of names) { const k = _nText(n); const i = H.findIndex(h => h && h.includes(k)); if (i >= 0) return i; }
+    return -1;
+  }
+
+  const CMP_COLS = {
+    order:  ["주문번호", "요청번호", "주문no", "orderno"],
+    name:   ["상품명", "제품명", "품목명", "상품", "품명"],
+    option: ["옵션", "옵션명", "옵션값", "옵션정보"],
+    qty:    ["수량", "주문수량", "출고수량", "개수"],
+    code:   ["상품코드", "바코드", "품목코드", "제품코드", "옵션코드", "sku"],
+    rname:  ["수령자이름", "수령자", "수령인", "받는분", "받는사람", "수취인", "고객명"],
+    phone:  ["수령자연락처", "연락처", "전화번호", "휴대폰", "수령자전화", "전화"],
+    addr:   ["수령자주소", "주소", "배송지", "수령주소", "배송주소"],
+    msg:    ["배송메세지", "배송메시지", "배송요청", "요청사항", "메세지", "메시지", "배송메모"],
+  };
+
+  /** 원본 표에서 "이 요청건에 해당하는 줄"만 골라냅니다.
+   *  (다중 업로드로 한 파일에서 여러 요청서가 만들어졌을 수 있어서) */
+  function pickRelatedRows(body, cols, r) {
+    const all = body.map((_, i) => i).filter(i => body[i].some(c => String(c || "").trim()));
+    if (cols.order >= 0) {
+      const hit = all.filter(i => _nText(body[i][cols.order]) === _nText(r.requestId));
+      if (hit.length) return { idx: hit, how: "주문번호" };
+    }
+    if (cols.rname >= 0 && r.receiver && r.receiver.name) {
+      const hit = all.filter(i => _nText(body[i][cols.rname]) === _nText(r.receiver.name));
+      if (hit.length && hit.length !== all.length) return { idx: hit, how: "수령자" };
+      if (hit.length) return { idx: hit, how: null };
+    }
+    return { idx: all, how: null };
+  }
+
+  /** 대조 카드 HTML + 원본 표에서 흐리게 처리할 줄 번호를 함께 돌려줍니다. */
+  function buildCompare(aoa, r) {
+    if (!r) return { html: "", other: new Set() };
+    const header = aoa[0] || [];
+    const body = aoa.slice(1);
+    const cols = {};
+    Object.keys(CMP_COLS).forEach(k => { cols[k] = pickCol(header, CMP_COLS[k]); });
+    // 우리가 아는 컬럼이 거의 없으면(형식이 전혀 다른 파일) 대조를 시도하지 않습니다.
+    const known = ["name", "qty", "rname", "addr"].filter(k => cols[k] >= 0).length;
+    if (known < 2) return { html: "", other: new Set() };
+
+    const rel = pickRelatedRows(body, cols, r);
+    const other = new Set(body.map((_, i) => i).filter(i => !rel.idx.includes(i)));
+    const rows = rel.idx.map(i => body[i]);
+    const warn = [];
+
+    // ── 수령 정보 대조 ──
+    const rc = r.receiver || {};
+    const first = rows[0] || [];
+    const infoRow = (label, colKey, mine, normFn) => {
+      if (cols[colKey] < 0) return "";
+      const src = String(first[cols[colKey]] ?? "").trim();
+      const my = String(mine ?? "").trim();
+      if (!src && !my) return "";
+      const same = normFn(src) === normFn(my);
+      // 값이 한쪽만 있으면 "확인 필요"로 봅니다. (원본에 있는데 요청서에 안 들어간 경우 등)
+      if (!same) warn.push(label);
+      return `<div class="cmp-row">
+        <div class="k">${label}</div>
+        <div class="v">${same
+          ? esc(src || my)
+          : `<span class="was">원본 ${esc(src) || "(없음)"}</span><span class="now">요청서 ${esc(my) || "(없음)"}</span>`}</div>
+        <div class="s">${same ? "✅" : "⚠️"}</div>
+      </div>`;
+    };
+    let infoHtml = "";
+    infoHtml += infoRow("수령자", "rname", rc.name, _nText);
+    infoHtml += infoRow("연락처", "phone", rc.phone, _nPhone);
+    infoHtml += infoRow("주소", "addr", rc.address, _nAddr);
+    infoHtml += infoRow("배송메세지", "msg", rc.message, _nText);
+
+    // ── 상품 줄 수 대조 ──
+    const prods = r.products || [];
+    const countSame = rows.length === prods.length;
+    if (!countSame) warn.push("상품 줄 수");
+    infoHtml += `<div class="cmp-row">
+      <div class="k">상품 줄</div>
+      <div class="v">${countSame
+        ? `원본 ${rows.length}줄 = 요청서 ${prods.length}종`
+        : `<span class="was">원본 ${rows.length}줄</span><span class="now">요청서 ${prods.length}종</span>`}</div>
+      <div class="s">${countSame ? "✅" : "⚠️"}</div>
+    </div>`;
+
+    // ── 상품 한 줄씩 대조 (순서대로 짝지음. 수량만 판정, 이름·코드는 나란히 표시) ──
+    const n = Math.max(rows.length, prods.length);
+    let itemHtml = "";
+    for (let i = 0; i < n; i++) {
+      const row = rows[i];
+      const p = prods[i];
+      const srcName = row && cols.name >= 0 ? String(row[cols.name] ?? "").trim() : "";
+      const srcOpt = row && cols.option >= 0 ? String(row[cols.option] ?? "").trim() : "";
+      const srcCode = row && cols.code >= 0 ? String(row[cols.code] ?? "").trim() : "";
+      const srcQty = row && cols.qty >= 0 ? _nQty(row[cols.qty]) : null;
+      const myQty = p ? _nQty(p.qty) : null;
+      const qtyBad = (srcQty != null && myQty != null && srcQty !== myQty);
+      const missing = !row || !p;
+      if (qtyBad) warn.push(`${i + 1}번 상품 수량`);
+      itemHtml += `<div class="cmp-item${(qtyBad || missing) ? " bad" : ""}">
+        <div><span class="lbl">${i + 1} 원본</span>${row
+          ? `${esc(srcName) || "(상품명 없음)"}${srcOpt ? ` · ${esc(srcOpt)}` : ""}${srcCode ? ` · <span class="cmp-code">${esc(srcCode)}</span>` : ""}${srcQty != null ? ` · <b${qtyBad ? ' class="qtybad"' : ""}>${srcQty}개</b>` : ""}`
+          : `<span style="color:#C0392B;">원본에 없는 줄 — 요청서에만 있어요</span>`}</div>
+        <div><span class="lbl">요청서</span>${p
+          ? `${esc(p.name) || "(상품명 없음)"}${p.option ? ` · ${esc(p.option)}` : ""}${p.code ? ` · <span class="cmp-code">${esc(p.code)}</span>` : ""}${myQty != null ? ` · <b${qtyBad ? ' class="qtybad"' : ""}>${myQty}개</b>` : ""}`
+          : `<span style="color:#C0392B;">요청서에 안 들어간 줄 — 누락 확인 필요</span>`}</div>
+      </div>`;
+    }
+
+    const uniq = [...new Set(warn)];
+    const badge = uniq.length
+      ? `<span class="cmp-badge warn">⚠️ 확인 필요 ${uniq.length}곳</span>`
+      : `<span class="cmp-badge ok">✅ 수량·수령정보 일치</span>`;
+    const relNote = other.size
+      ? `<div class="srcnote">이 파일에는 다른 요청건 줄도 있어요 — ${rel.how ? rel.how + "로 " : ""}이 요청건 ${rows.length}줄만 대조했고, 아래 표에서 나머지는 흐리게 표시했어요.</div>`
+      : "";
+
+    return {
+      html: `<div class="cmp">
+        <div class="cmp-head"><span class="t">🔍 원본 ↔ 요청서 대조</span>${badge}</div>
+        ${infoHtml}
+        <div class="cmp-sub">상품 대조 <span style="font-weight:400;">(상품명·코드는 원래 다를 수 있어요 — 눈으로 확인용)</span></div>
+        ${itemHtml}
+        ${uniq.length ? `<div class="srcnote" style="color:#C0392B;">다른 곳: ${esc(uniq.join(", "))}</div>` : ""}
+        ${relNote}
+      </div>`,
+      other,
+    };
+  }
+
+  /** 엑셀/CSV 바이트 → (대조 카드 +) 시트별 표 HTML (첫 줄을 머리글로 봅니다) */
+  function sheetsToHtml(buf, fileName, req) {
+    let wb;
+    try {
+      wb = XLSX.read(new Uint8Array(buf), { type: "array" });
+    } catch (e) {
+      return `<div class="srcmore" style="color:var(--danger);">엑셀 형식을 읽지 못했어요.</div>`;
+    }
+    const out = [];
+    let cmpDone = false;
+    wb.SheetNames.slice(0, 3).forEach(sn => {
+      const aoa = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, defval: "", blankrows: false });
+      if (!aoa.length) return;
+      // 첫 번째(내용이 있는) 시트에서만 자동 대조를 합니다.
+      let otherRows = new Set();
+      if (!cmpDone) {
+        const cmp = buildCompare(aoa, req);
+        if (cmp.html) { out.push(cmp.html); otherRows = cmp.other; }
+        cmpDone = true;
+      }
+      const colCount = Math.min(PREVIEW_MAX_COLS, aoa.reduce((m, row) => Math.max(m, row.length), 0));
+      const cell = (val) => {
+        const s = (val == null) ? "" : String(val);
+        return `<td title="${esc(s)}">${esc(s)}</td>`;
+      };
+      const header = aoa[0] || [];
+      const bodyRows = aoa.slice(1, 1 + PREVIEW_MAX_ROWS);
+      const thead = `<thead><tr><th class="rowno">#</th>${
+        Array.from({ length: colCount }, (_, i) => `<th title="${esc(String(header[i] ?? ""))}">${esc(String(header[i] ?? "")) || "&nbsp;"}</th>`).join("")
+      }</tr></thead>`;
+      // 이 요청건과 관계없는 줄(다중 업로드로 만들어진 다른 요청서)은 흐리게 표시
+      const tbody = `<tbody>${bodyRows.map((row, ri) => `<tr${otherRows.has(ri) ? ' class="other" title="다른 요청건 줄이에요"' : ""}><td class="rowno">${ri + 1}</td>${
+        Array.from({ length: colCount }, (_, i) => cell(row[i])).join("")
+      }</tr>`).join("")}</tbody>`;
+      const more = (aoa.length - 1 > bodyRows.length)
+        ? `<div class="srcmore">… 아래 ${(aoa.length - 1 - bodyRows.length).toLocaleString()}줄은 생략했어요 (전체 ${(aoa.length - 1).toLocaleString()}줄)</div>` : "";
+      const sheetLabel = (wb.SheetNames.length > 1) ? `<div class="srcmore" style="padding:4px 0;">시트: <b>${esc(sn)}</b></div>` : "";
+      out.push(`${sheetLabel}<div class="srcwrap"><table>${thead}${tbody}</table></div>${more}`);
+    });
+    if (!out.length) return `<div class="srcmore">내용이 비어 있어요.</div>`;
+    return out.join("");
   }
 
   /** 첨부 메타 목록 → 다운로드 링크 HTML */
@@ -1981,7 +2366,9 @@
       // 그 외 모든 화면(대시보드·전체·완료)에서는 취소 건과 안전재고 건을 숨깁니다.
       rows = rows.filter(r => r.status !== "cancelled" && r.requestType !== "안전재고");
       if (activeView === "done") rows = rows.filter(r => r.status === "done");
-      if (activeStatus) rows = rows.filter(r => r.status === activeStatus);
+      // "진행 필요" 탭 = 대기 + 진행중 (완료·취소 제외) — 실제로 손이 가야 하는 건만
+      if (activeStatus === "open") rows = rows.filter(r => r.status === "pending" || r.status === "in_progress");
+      else if (activeStatus) rows = rows.filter(r => r.status === activeStatus);
     }
     if (activeTeam) rows = rows.filter(r => r.team === activeTeam);
     if (activeAssignee) rows = rows.filter(r => r.assignee === activeAssignee);
@@ -2189,6 +2576,8 @@
     ov.style.display = "flex";
     loadAttachmentsInto(sr);
     loadHistoryInto(sr);
+    loadSourcePreviewInto(sr);
+    refreshLineStocks();
     panel.querySelector("#rmClose").onclick = closeReqModal;
     panel.querySelectorAll("[data-copy]").forEach(b => b.onclick = () => { const rr = DATA.find(x => x.requestId === b.dataset.copy); if(rr) copyText(slackText(rr), b); });
     panel.querySelectorAll("[data-memo]").forEach(b => b.onclick = () => openMemo(b.dataset.memo));
@@ -2203,21 +2592,92 @@
     document.querySelectorAll("#viewSwitch .vbtn").forEach(b => b.classList.toggle("on", b.dataset.vm === viewMode));
   }
 
+  /** 상태 칸 — 안전재고 요청은 눌러서 대기 → 진행중 → 완료로 바로 넘길 수 있는 버튼으로 그립니다.
+   *  (예전 '관리' 열을 없앨 때 버튼이 함께 사라져서 클릭이 안 되던 문제를 고쳤어요) */
+  function statusCellHtml(r) {
+    const label = STATUS_LABEL[r.status];
+    const clickable = r.requestType === "안전재고" && r.status !== "cancelled";
+    if (!clickable) return `<span class="statuspill ${r.status}">${label}</span>`;
+    const nextLabel = SAFETY_NEXT_LABEL[r.status] || "진행중으로";
+    return `<button type="button" class="statuspill ${r.status} safetyStatusBtn"
+      data-id="${esc(r.requestId)}" data-status="${esc(r.status)}"
+      title="눌러서 ${nextLabel} 바꿔요">${label}<span class="arrow">⇢</span></button>`;
+  }
+
+  /** ④ 페이지 이동 줄 — 30건 단위로 나눠 보여주고, 지금 몇 번째를 보고 있는지 알려줍니다. */
+  function renderPager(total, totalPages, startIdx, shown) {
+    const el = document.getElementById("pager");
+    if (!el) return;
+    if (!total) { el.style.display = "none"; el.innerHTML = ""; return; }
+    el.style.display = "";
+
+    // 페이지 번호 버튼: 현재 페이지 주변만 보여주고 나머지는 …로 접습니다.
+    const nums = [];
+    const push = (n) => nums.push(`<button type="button" class="pnum${n === PAGE ? " on" : ""}" data-page="${n}">${n}</button>`);
+    const gap = () => nums.push('<span class="gap">…</span>');
+    if (totalPages <= 9) {
+      for (let i = 1; i <= totalPages; i++) push(i);
+    } else {
+      push(1);
+      if (PAGE > 4) gap();
+      for (let i = Math.max(2, PAGE - 2); i <= Math.min(totalPages - 1, PAGE + 2); i++) push(i);
+      if (PAGE < totalPages - 3) gap();
+      push(totalPages);
+    }
+    el.innerHTML = `
+      <span class="pinfo">전체 ${total.toLocaleString()}건 중 ${(startIdx + 1).toLocaleString()}–${(startIdx + shown).toLocaleString()}번째 · ${PAGE}/${totalPages} 페이지</span>
+      <button type="button" data-page="prev" ${PAGE <= 1 ? "disabled" : ""} title="이전 페이지">‹ 이전</button>
+      ${nums.join("")}
+      <button type="button" data-page="next" ${PAGE >= totalPages ? "disabled" : ""} title="다음 페이지">다음 ›</button>
+      <select id="pageSizeSel" title="한 페이지에 보여줄 건수">
+        ${[30, 50, 100].map(n => `<option value="${n}"${n === PAGE_SIZE ? " selected" : ""}>${n}건씩</option>`).join("")}
+      </select>`;
+
+    el.querySelectorAll("button[data-page]").forEach(b => b.addEventListener("click", () => {
+      const v = b.dataset.page;
+      if (v === "prev") PAGE = Math.max(1, PAGE - 1);
+      else if (v === "next") PAGE = Math.min(totalPages, PAGE + 1);
+      else PAGE = Number(v) || 1;
+      renderTable();
+      const card = document.querySelector(".tablecard");
+      if (card) card.scrollIntoView({ behavior: "smooth", block: "start" });
+    }));
+    const sizeSel = document.getElementById("pageSizeSel");
+    if (sizeSel) sizeSel.addEventListener("change", () => {
+      PAGE_SIZE = Number(sizeSel.value) || 30;
+      PAGE = 1;
+      renderTable();
+    });
+  }
+
   function renderTable() {
-    const rows = getFilteredRows();
+    const allRows = getFilteredRows();
+    renderStatusTabCounts();
 
     // 보기 방식(목록/캘린더/칸반) 전환 — 같은 필터 결과(rows)를 다른 모양으로 그립니다.
     const listView = document.getElementById("listView");
     const calView = document.getElementById("calendarView");
     const kanView = document.getElementById("kanbanView");
+    const pagerEl = document.getElementById("pager");
     if (listView) listView.style.display = viewMode === "list" ? "" : "none";
     if (calView) calView.style.display = viewMode === "calendar" ? "" : "none";
     if (kanView) kanView.style.display = viewMode === "kanban" ? "" : "none";
-    if (viewMode === "calendar") { renderCalendar(rows); return; }
-    if (viewMode === "kanban") { renderKanban(rows); return; }
+    if (pagerEl) pagerEl.style.display = "none";
+    if (viewMode === "calendar") { renderCalendar(allRows); return; }
+    if (viewMode === "kanban") { renderKanban(allRows); return; }
+
+    // ④ 페이지 나누기 — 한 페이지 30건(기본). 필터가 바뀌면 자동으로 1페이지로 돌아갑니다.
+    const sig = [activeView, activeStatus, activeTeam, activeAssignee, activeChannel, todayOnly, searchTerm, PAGE_SIZE].join("§");
+    if (sig !== _pageSig) { _pageSig = sig; PAGE = 1; }
+    const totalPages = Math.max(1, Math.ceil(allRows.length / PAGE_SIZE));
+    if (PAGE > totalPages) PAGE = totalPages;
+    if (PAGE < 1) PAGE = 1;
+    const startIdx = (PAGE - 1) * PAGE_SIZE;
+    const rows = allRows.slice(startIdx, startIdx + PAGE_SIZE);
+    renderPager(allRows.length, totalPages, startIdx, rows.length);
 
     const body = document.getElementById("tableBody");
-    document.getElementById("tableEmpty").style.display = rows.length ? "none" : "";
+    document.getElementById("tableEmpty").style.display = allRows.length ? "none" : "";
     body.innerHTML = rows.map(r => {
       const open = expanded.has(r.requestId);
       const summary = productSummary(r);
@@ -2239,7 +2699,7 @@
         <td class="duecell col-due${isOverdue(r) ? " overdue" : isSoon(r) ? " soon" : ""}">${(isOverdue(r) || isSoon(r)) ? "🔥 " : ""}${fmtDue(r)}</td>
         <td class="col-recv col-extra">${esc(r.receiver.name) || "-"}</td>
         <td class="msg col-to col-extra" title="${esc(r.receiver.address)}">${esc(r.receiver.address) || "-"}</td>
-        <td><span class="statuspill ${r.status}">${STATUS_LABEL[r.status]}</span></td>
+        <td>${statusCellHtml(r)}</td>
         <td class="num col-track">${r.trackingNo ? `<span class="trackbadge" title="${esc(r.carrier || "")}">🚚 ${esc(r.trackingNo)}</span>` : "-"}</td>
         <td class="num col-extra">${esc(r.completedAt) || "-"}</td>
         <td class="col-memo memocell${r.memo ? " has-memo" : ""}" data-memo="${esc(r.requestId)}" title="${r.memo ? esc(r.memo) : "클릭해서 특이사항(비고) 메모를 작성해요"}">${r.memo ? `<span class="memo-text">📝 ${esc(r.memo.length > 22 ? r.memo.slice(0, 22) + "…" : r.memo)}</span>` : '<span class="memo-empty">＋ 메모</span>'}</td>
@@ -2258,7 +2718,7 @@
         tr.classList.toggle("open", !open);
         tr.setAttribute("aria-expanded", String(!open));
         if (drow) drow.style.display = open ? "none" : "";
-        if (!open) { loadAttachmentsInto(id); loadHistoryInto(id); refreshLineStocks(); }   // 펼칠 때 첨부파일·변경이력 불러오고, 상품별 가용재고(상품코드·바코드) 즉시 조회
+        if (!open) { loadAttachmentsInto(id); loadHistoryInto(id); loadSourcePreviewInto(id); refreshLineStocks(); }   // 펼칠 때 첨부파일·변경이력·원본파일 미리보기 불러오고, 상품별 가용재고(상품코드·바코드) 즉시 조회
       };
       tr.addEventListener("click", (e) => { if (e.target.closest("button, input, a")) return; toggle(); });
       tr.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
@@ -2334,6 +2794,11 @@
     const isCancelled = view === "cancelled";
     const isSafety = view === "safety";
     const listOnly = isCancelled || isSafety; // 지표·차트·안내문 없이 목록만
+    // ① 팀장님 피드백 — 목록 화면에서는 '업무 진행률(도넛)·오늘의 업무·사용법'을 감추고,
+    //    계속 쌓이기만 하는 '전체 요청·완료' 카드도 전체 요청 화면에서는 숨깁니다.
+    //    (대시보드 화면에서는 지금처럼 전부 보여요)
+    document.body.classList.toggle("lean-banner", view !== "dashboard");
+    document.body.classList.toggle("hide-cumulative", view === "all");
     document.querySelector(".stats").style.display = (isForm || isLogistics || listOnly) ? "none" : "";
     document.querySelector(".panels").style.display = (isForm || isLogistics || listOnly) ? "none" : "";
     document.querySelector(".tablecard").style.display = (isForm || isLogistics) ? "none" : "";
@@ -2343,7 +2808,11 @@
     // 상태 탭(대기/진행중/완료)은 취소·안전재고 목록에서 의미가 없으므로 숨깁니다.
     const statusTabsEl = document.getElementById("statusTabs");
     if (statusTabsEl) statusTabsEl.style.display = listOnly ? "none" : "";
-    if (listOnly) { activeStatus = ""; document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x.dataset.status === "")); }
+    // 화면을 옮길 때 상태 탭 기본값 — 취소·안전재고·완료 목록은 '전체', 그 외는 '진행 필요'
+    const defStatus = (listOnly || view === "done") ? "" : "open";
+    activeStatus = defStatus;
+    document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x.dataset.status === defStatus));
+    PAGE = 1;
     // 안전재고 화면: 수령자·수령처·송장 열 숨기고, '출고 희망일'을 '재고 확보 희망일'로 표기
     const reqTable = document.querySelector(".reqtable");
     if (reqTable) reqTable.classList.toggle("hide-supply", isSafety);
@@ -2353,6 +2822,7 @@
     const advBtn = document.getElementById("bulkAdvanceBtn");
     if (advBtn) advBtn.style.display = isSafety ? "" : "none";
 
+    renderStats();   // 화면에 따라 감출 카드(0건 경고 등)를 다시 계산
     renderTable();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -3341,6 +3811,11 @@
     clearTodayFilter();
     renderTable();
   });
+  document.getElementById("teamFilter").addEventListener("change", (e) => {
+    activeTeam = e.target.value || null;
+    clearTodayFilter();
+    renderTable();
+  });
   document.getElementById("assigneeFilter").addEventListener("change", (e) => {
     activeAssignee = e.target.value || null;
     clearTodayFilter();
@@ -4264,9 +4739,70 @@
 </script>
 <script>
   // PWA: 서비스워커 등록 (홈 화면 설치형 앱 + 오프라인 최소 지원)
+  /* =====================================================================
+     서비스워커 등록 + 새 버전 자동 적용
+     배포했는데 화면이 안 바뀌던 문제(강력 새로고침 필요)를 없앱니다.
+      - sw.js를 캐시 없이(updateViaCache:'none') 확인
+      - 탭을 다시 켤 때마다 새 버전이 있는지 조용히 확인
+      - 새 버전이 준비되면: 요청서 작성 중이 아니면 자동 새로고침,
+        입력 중이면 화면을 날리지 않고 오른쪽 아래 '새로고침' 안내만 띄웁니다.
+     ===================================================================== */
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function(){
-      navigator.serviceWorker.register('sw.js').catch(function(){});
+    window.addEventListener('load', function () {
+      var hadController = !!navigator.serviceWorker.controller;   // 이미 켜져 있던 사용자인지
+      var reloading = false;
+
+      // 지금 새로고침해도 안전한가? (요청서 입력 중이면 안전하지 않음)
+      function safeToReload() {
+        try {
+          var form = document.getElementById("formSection");
+          if (form && form.style.display !== "none") {
+            var dirty = [...form.querySelectorAll("input[type=text], input[type=tel], input[type=number], input[type=date], textarea")]
+              .some(function (el) { return el.value && String(el.value).trim(); });
+            if (dirty) return false;
+          }
+        } catch (e) {}
+        return true;
+      }
+
+      function showUpdateBar() {
+        if (document.getElementById("swUpdateBar")) return;
+        var bar = document.createElement("div");
+        bar.id = "swUpdateBar";
+        bar.style.cssText = "position:fixed;right:18px;bottom:18px;z-index:10000;display:flex;align-items:center;gap:10px;"
+          + "padding:12px 14px;border-radius:12px;background:var(--surface,#fff);border:1px solid var(--border,#dde1e7);"
+          + "box-shadow:0 10px 30px rgba(0,0,0,.18);font-size:13px;color:var(--text,#22252a);max-width:320px;";
+        bar.innerHTML = '<span style="line-height:1.5;">새 버전이 나왔어요. 작성 중인 내용을 저장한 뒤 새로고침해 주세요.</span>'
+          + '<button type="button" id="swReloadBtn" style="flex:none;appearance:none;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;'
+          + 'padding:8px 12px;border-radius:8px;border:1px solid var(--accent,#2f6fed);background:var(--accent,#2f6fed);color:#fff;">새로고침</button>';
+        document.body.appendChild(bar);
+        document.getElementById("swReloadBtn").addEventListener("click", function () { location.reload(); });
+      }
+
+      navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function (reg) {
+        reg.update().catch(function () {});
+        // 새 서비스워커가 설치되면 바로 활성화시킵니다.
+        reg.addEventListener('updatefound', function () {
+          var nw = reg.installing;
+          if (!nw) return;
+          nw.addEventListener('statechange', function () {
+            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+              nw.postMessage({ type: 'SKIP_WAITING' });
+            }
+          });
+        });
+        // 탭을 다시 열 때 조용히 새 버전 확인
+        document.addEventListener('visibilitychange', function () {
+          if (document.visibilityState === 'visible') reg.update().catch(function () {});
+        });
+      }).catch(function () {});
+
+      // 새 버전이 화면을 넘겨받는 순간 (= 배포된 최신본이 준비된 순간)
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (!hadController || reloading) return;   // 첫 방문에는 새로고침하지 않음
+        if (safeToReload()) { reloading = true; location.reload(); }
+        else showUpdateBar();
+      });
     });
   }
 
