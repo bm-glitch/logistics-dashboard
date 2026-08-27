@@ -3914,122 +3914,373 @@
     renderTable();
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
-  // ===== 발주서(.xls/.xlsx) 자동 채우기 =====
-  // 옵티마약국 등 타부서가 공유하는 표준 발주서 컬럼명을 그대로 찾아서 매핑합니다.
-  // 헤더 이름이 이것과 다르면(예: "수령인") 못 찾은 항목만 비어 있고, 나머지는 정상 채워집니다.
-  const ORDER_FILE_COLS = {
-    상품명: ["상품명"], 옵션: ["옵션"], 수량: ["수량"],
-    수령자이름: ["수령자이름", "수령자 이름"],
-    수령자연락처: ["수령자연락처", "수령자 연락처"],
-    수령자우편번호: ["수령자우편번호", "수령자 우편번호"],
-    수령자주소: ["수령자주소", "수령자 주소"],
-    배송메세지: ["배송메세지", "배송메시지", "배송 메세지"],
-  };
+  // ===== 어떤 양식이든 읽어내는 공통 파서 (2026-08-27) =====
+  // 타팀 발주서는 '표 한 장'이 아니라 '양식 문서'인 경우가 많습니다.
+  //   · 제목줄이 1행이 아니라 한참 아래(실제 사례: 18행)에 있고
+  //   · 수령정보가 표 컬럼이 아니라 표 위 '입 고 처 / 담 당 자' 같은 항목-값 칸에 적혀 있고
+  //   · '공급자(우리 회사)'와 '발주처(받는 곳)'가 나란히 적혀 있습니다.
+  // 그래서 ① 제목줄을 점수로 찾고 ② 표 밖 항목-값 칸까지 훑고
+  // ③ 공급자 구역 값은 절대 쓰지 않도록 구역을 나눠 읽습니다.
+  // ③이 특히 중요합니다 — 잘못 집으면 우리 사무실로 배송됩니다.
 
-  function findCol(headerRow, names) {
-    for (const name of names) {
-      const idx = headerRow.findIndex(h => String(h || "").trim() === name);
-      if (idx >= 0) return idx;
-    }
-    return -1;
-  }
+  const META_LABELS = [
+    { names: ["입고처","배송지","납품처","수령처","도착지","인도장소","납품장소","배송처","인도처"], key: "place",  score: 100 },
+    { names: ["수령인","수령자","수취인","받는분","받는사람","인수자","수하인","수령자명"],           key: "name",   score: 90  },
+    { names: ["담당자","담당","연락담당","담당자명","담당자연락처"],                                  key: "person", score: 60  },
+    { names: ["상호","업체명","거래처명","회사명","매장명","지점명","매장","지점","점포명"],           key: "store",  score: 50  },
+    { names: ["소재지","주소","사업장주소","사업장소재지","본사주소"],                                key: "addr",   score: 40  },
+    { names: ["연락처","전화","전화번호","휴대폰","핸드폰","연락번호","대표번호"],                     key: "phone",  score: 40  },
+    { names: ["배송메세지","배송메시지","요청사항","전달사항","배송요청","특이사항","비고"],           key: "msg",    score: 30  },
+  ];
+  // 구역 표시 — 이 단어가 보이면 그 오른쪽·아래는 해당 구역으로 봅니다.
+  const BUYER_MARKS    = ["발주처","buyer","수령처","입고처","납품처","주문처","고객사","받는곳","수요처"];
+  const SUPPLIER_MARKS = ["공급자","supplier","공급처","제조사","판매자","발송처","출고처","보내는곳","수주처"];
 
-  /** 발주서 하나를 읽어서 {receiver, products} 형태로 돌려줍니다 (파일 저장은 안 함). */
-  async function parseOrderFile(file) {
+  const RE_PHONE  = /(0\d{1,2})[-\s.]?(\d{3,4})[-\s.]?(\d{4})/;
+  const RE_REGION = /(특별시|광역시|특별자치시|특별자치도|서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주|[가-힣]{2}도)/;
+  const RE_KRNAME = /^[가-힣]{2,4}$/;
+
+  /** 엑셀 첫 시트를 2차원 문자열 배열로 읽습니다. (병합셀은 좌상단에만 값이 들어옵니다) */
+  async function readGrid(file) {
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf, { type: "array" });
-    const sheet = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
-    if (!rows.length) throw new Error(file.name + ": 빈 파일이에요.");
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    // range: 0 을 줘야 시트 "첫 줄"부터 읽습니다.
+    // (빈 줄로 시작하는 양식은 기본값이 그 줄을 건너뛰어, 제목줄 18행을 17행이라고 잘못 안내합니다)
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", blankrows: true, range: 0 });
+    return (rows || []).map(r => (r || []).map(v => String(v == null ? "" : v).trim()));
+  }
 
-    const header = rows[0].map(h => String(h || "").trim());
+  /** 별칭 사전을 '정규화된 이름 → 우리 필드' 형태로 펼칩니다. */
+  function flatAliasMap() {
+    const flat = {};
+    for (const k in IMPORT_ALIASES) for (const a of IMPORT_ALIASES[k]) flat[impNorm(a)] = k;
+    return flat;
+  }
+
+  // 제목줄 판정에 쓰는 '표 컬럼다운' 필드들
+  const TABLE_KEYS = { pname:1, popt:1, qty:1, qtyOrd:1, qtyOut:1, code:1, price:1, orderNo:1, name:1, addr:1, phone:1, store:1 };
+
+  /** 제목줄이 몇 번째 줄인지 점수로 찾습니다. (1행 고정 가정 금지 — 18행인 파일이 실제로 있습니다) */
+  function findHeaderRow(grid, flat, scan) {
+    let bestI = -1, bestScore = 0;
+    const to = Math.min(grid.length, scan || 40);
+    for (let i = 0; i < to; i++) {
+      const seen = new Set();
+      (grid[i] || []).forEach(c => {
+        const k = flat[impNorm(c)];
+        if (k && TABLE_KEYS[k]) seen.add((k === "qtyOrd" || k === "qtyOut") ? "qty" : k);
+      });
+      if (seen.size > bestScore) { bestScore = seen.size; bestI = i; }
+    }
+    return { idx: bestI, score: bestScore };
+  }
+
+  /** 표 위 구역(공급자/발주처) 표시를 모아, 특정 칸이 어느 구역인지 알려주는 함수를 돌려줍니다. */
+  function sectionResolver(grid, upto) {
+    const marks = [];
+    for (let r = 0; r < upto; r++) {
+      const row = grid[r] || [];
+      for (let c = 0; c < row.length; c++) {
+        const n = impNorm(row[c]);
+        if (!n) continue;
+        if (BUYER_MARKS.some(m => n.includes(m)))         marks.push({ r, c, kind: "buyer" });
+        else if (SUPPLIER_MARKS.some(m => n.includes(m))) marks.push({ r, c, kind: "supplier" });
+      }
+    }
+    // 어떤 칸의 구역 = 그 칸보다 위/왼쪽에 있는 표시 중 가장 가까운(=가장 나중에 나온) 것
+    return function kindAt(r, c) {
+      let best = null, bestKey = null;
+      for (const m of marks) {
+        if (m.r <= r && m.c <= c) {
+          const key = m.r * 1000 + m.c;
+          if (bestKey === null || key > bestKey) { bestKey = key; best = m.kind; }
+        }
+      }
+      return best;
+    };
+  }
+
+  /** 라벨 칸 오른쪽(같은 줄)에서 첫 값. 없으면 바로 아래 칸. */
+  function valueBeside(grid, r, c) {
+    const row = grid[r] || [];
+    for (let cc = c + 1; cc < Math.min(row.length, c + 9); cc++) if (row[cc]) return row[cc];
+    const below = grid[r + 1] || [];
+    if (below[c]) return below[c];
+    return "";
+  }
+
+  /** 한 칸에 여러 정보가 뭉쳐 있는 경우를 쪼갭니다.
+   *  실제 예: "서울시 서초구 ... 웰니스하우스서울  /  수령인 : 이수정" → 주소 + 이름 */
+  function splitComposite(text) {
+    const out = { addr: "", name: "", phone: "", store: "" };
+    let t = String(text || "");
+    if (!t) return out;
+    const pm = t.match(RE_PHONE);
+    if (pm) { out.phone = pm[1] + "-" + pm[2] + "-" + pm[3]; t = t.slice(0, pm.index) + " " + t.slice(pm.index + pm[0].length); }
+    const parts = t.split(/[/|·]|\s{3,}/).map(x => x.trim()).filter(Boolean);
+    for (let p of parts) {
+      const lm = p.match(/^\s*([가-힣A-Za-z ]{2,10})\s*[:：]\s*(.+)$/);
+      if (lm) {
+        const lab = impNorm(lm[1]), val = lm[2].trim();
+        let key = null;
+        for (const L of META_LABELS) if (L.names.some(n => impNorm(n) === lab)) { key = L.key; break; }
+        if (key === "name" || key === "person") { out.name  = out.name  || val; continue; }
+        if (key === "addr" || key === "place")  { out.addr  = out.addr  || val; continue; }
+        if (key === "phone")                    { out.phone = out.phone || val; continue; }
+        if (key === "store")                    { out.store = out.store || val; continue; }
+        p = val;
+      }
+      if (RE_REGION.test(p) && p.length > 10)      out.addr  = out.addr  || p;
+      else if (!out.name && RE_KRNAME.test(p))     out.name  = p;
+      else if (!out.store && p.length <= 30)       out.store = p;
+    }
+    return out;
+  }
+
+  /** 표 '밖'의 항목-값 칸에서 수령정보를 찾아냅니다. 공급자 구역 값은 쓰지 않습니다. */
+  function extractReceiverMeta(grid, headerIdx) {
+    const upto = headerIdx > 0 ? headerIdx : grid.length;
+    const kindAt = sectionResolver(grid, upto);
+    const cand = {};
+    const put = (f, v, sc) => { if (v && (!cand[f] || sc > cand[f].sc)) cand[f] = { sc, v: String(v).trim() }; };
+
+    for (let r = 0; r < upto; r++) {
+      const row = grid[r] || [];
+      for (let c = 0; c < row.length; c++) {
+        const n = impNorm(row[c]);
+        if (!n || n.length > 12) continue;
+        const L = META_LABELS.find(x => x.names.some(y => impNorm(y) === n));
+        if (!L) continue;
+        const raw = valueBeside(grid, r, c);
+        if (!raw) continue;
+        const sect = kindAt(r, c);
+        // 공급자(보내는 쪽 = 우리 회사) 구역은 '입고처'만 예외로 인정합니다.
+        if (sect === "supplier" && L.key !== "place") continue;
+        const sc = L.score + (sect === "buyer" ? 20 : 0);
+        const parts = splitComposite(raw);
+        if (L.key === "place") {
+          put("addr", parts.addr || raw, sc);
+          put("name", parts.name, sc);
+          put("phone", parts.phone, sc);
+          put("store", parts.store, sc - 5);
+        } else if (L.key === "name" || L.key === "person") {
+          put("name", parts.name || raw.replace(RE_PHONE, "").trim(), sc);
+          put("phone", parts.phone, sc);
+        } else if (L.key === "addr")  { put("addr", parts.addr || raw, sc); }
+        else if (L.key === "phone")   { put("phone", parts.phone || raw, sc); }
+        else if (L.key === "store")   { put("store", parts.store || raw, sc); }
+        else if (L.key === "msg")     { put("msg", raw, sc); }
+      }
+    }
+    const out = {};
+    for (const k in cand) out[k] = cand[k].v;
+    // 상호에 붙은 "(대표 : 홍길동)" 같은 꼬리표는 떼어냅니다.
+    if (out.store) out.store = out.store.replace(/[（(][^)）]*[)）]\s*$/, "").trim();
+    return out;
+  }
+
+  /** 제목줄 아래 표에서 상품 줄만 뽑습니다. */
+  function readProductsFrom(grid, headerIdx, flat) {
+    const header = grid[headerIdx] || [];
     const col = {};
-    for (const key in ORDER_FILE_COLS) col[key] = findCol(header, ORDER_FILE_COLS[key]);
-
-    const dataRows = rows.slice(1).filter(r => r.some(v => String(v || "").trim() !== ""));
-    if (!dataRows.length) throw new Error(file.name + ": 상품 데이터를 찾지 못했어요.");
-
-    const products = [];
-    dataRows.forEach(r => {
-      const name = col.상품명 >= 0 ? String(r[col.상품명] || "").trim() : "";
-      if (!name) return;
-      const opt = col.옵션 >= 0 ? String(r[col.옵션] || "").trim() : "";
-      let qty = 1;
-      if (col.수량 >= 0) {
-        const q = parseInt(String(r[col.수량] || "").trim(), 10);
-        qty = Number.isFinite(q) && q > 0 ? q : 1;
-      }
-      products.push({ name, option: opt, qty });
+    const codeCols = [];
+    header.forEach((c, i) => {
+      const k = flat[impNorm(c)];
+      if (!k) return;
+      if (col[k] === undefined) col[k] = i;
+      if (k === "code") codeCols.push(i);
     });
-
-    // 수령정보·배송메세지는 '첫 번째로 값이 채워진 행' 기준으로 가져옵니다.
-    // (맨 윗줄이 비어 있고 아래 줄에만 배송메세지가 적힌 파일도 놓치지 않게 하기 위함)
-    const get = (colKey) => {
-      if (col[colKey] < 0) return "";
-      for (const row of dataRows) {
-        const v = String(row[col[colKey]] || "").trim();
-        if (v) return v;
+    const g = (row, k) => (col[k] === undefined ? "" : String(row[col[k]] == null ? "" : row[col[k]]).trim());
+    const products = [];
+    for (let r = headerIdx + 1; r < grid.length; r++) {
+      const row = grid[r] || [];
+      if (!row.some(v => String(v || "").trim())) continue;
+      const nm = g(row, "pname");
+      const codes = [...new Set(codeCols.map(i => String(row[i] == null ? "" : row[i]).trim()).filter(Boolean))];
+      const cd = codes[0] || "";
+      if (!nm && !cd) continue;
+      if (/소계|합계|총계|subtotal|total/i.test(nm + " " + cd)) continue;
+      let qty = 0;
+      for (const k of ["qtyOut", "qtyOrd", "qty"]) {
+        const v = parseInt(g(row, k).replace(/[^\d]/g, ""), 10);
+        if (Number.isFinite(v) && v > 0) { qty = v; break; }
       }
-      return "";
-    };
-    const zip = get("수령자우편번호");
-    const addr = get("수령자주소");
+      products.push({ code: cd, codes, name: nm || cd, rawName: nm || cd, option: g(row, "popt") || "없음", qty: qty || 1 });
+    }
+    return { col, products };
+  }
+
+  /** 표 컬럼 기준으로 '배송지가 몇 곳인지' 셉니다. (0 = 표에 수령자 칸이 아예 없음) */
+  function countTableDestinations(grid, headerIdx, flat) {
+    const header = grid[headerIdx] || [];
+    const col = {};
+    header.forEach((c, i) => { const k = flat[impNorm(c)]; if (k && col[k] === undefined) col[k] = i; });
+    const keys = ["name", "addr", "store"].filter(k => col[k] !== undefined);
+    if (!keys.length) return 0;
+    const seen = new Set();
+    let carry = {};
+    for (let r = headerIdx + 1; r < grid.length; r++) {
+      const row = grid[r] || [];
+      if (!row.some(v => String(v || "").trim())) continue;
+      keys.forEach(k => { const v = String(row[col[k]] == null ? "" : row[col[k]]).trim(); if (v) carry[k] = v; });
+      const sig = keys.map(k => impNorm(carry[k] || "")).join("|");
+      if (sig.replace(/\|/g, "")) seen.add(sig);
+    }
+    return seen.size;
+  }
+
+  // ===== 발주서(.xls/.xlsx) 자동 채우기 =====
+
+  /** 발주서 하나를 읽어서 {receiver, products, dests, ...} 로 돌려줍니다 (파일 저장은 안 함). */
+  async function parseOrderFile(file) {
+    const grid = await readGrid(file);
+    if (!grid.length) throw new Error(file.name + ": 빈 파일이에요.");
+    const flat = flatAliasMap();
+
+    const h = findHeaderRow(grid, flat);
+    if (h.idx < 0 || h.score < 2) {
+      throw new Error(file.name + ": 상품 표의 제목줄(상품명·수량·코드 등)을 찾지 못했어요.");
+    }
+    const { col, products } = readProductsFrom(grid, h.idx, flat);
+    if (!products.length) throw new Error(file.name + ": 표는 찾았지만 상품 줄이 없어요.");
+
+    // ① 표 밖 항목-값 칸에서 수령정보 (이 파일 형식의 핵심)
+    const meta = extractReceiverMeta(grid, h.idx);
+    // ② 표 안에 수령자 컬럼이 있으면 그게 더 정확하므로 우선 사용
+    const fromTable = {};
+    ["name", "phone", "addr", "msg", "store", "zip"].forEach(k => {
+      if (col[k] === undefined && k !== "zip") return;
+      for (let r = h.idx + 1; r < grid.length; r++) {
+        const idx = (k === "zip") ? col.zip : col[k];
+        if (idx === undefined) break;
+        const v = String((grid[r] || [])[idx] || "").trim();
+        if (v) { fromTable[k] = v; break; }
+      }
+    });
+    const phoneRaw = fromTable.phone || meta.phone || "";
+    const pm = String(phoneRaw).match(RE_PHONE);
+    const zip = fromTable.zip || "";
+    let addr = fromTable.addr || meta.addr || "";
+    if (zip && addr && !addr.startsWith("(")) addr = "(" + zip + ") " + addr;
+
     const receiver = {
-      name: get("수령자이름"),
-      phone: get("수령자연락처"),
-      address: zip ? `(${zip}) ${addr}` : addr,
-      message: get("배송메세지"),
+      name:    fromTable.name || meta.name || meta.store || "",
+      phone:   pm ? (pm[1] + "-" + pm[2] + "-" + pm[3]) : String(phoneRaw).trim(),
+      address: addr,
+      message: fromTable.msg || meta.msg || "",
+      store:   meta.store || fromTable.store || "",
     };
 
-    return { fileName: file.name, receiver, products };
+    return {
+      fileName: file.name, receiver, products,
+      headerRow: h.idx + 1,
+      dests: countTableDestinations(grid, h.idx, flat),
+      foundBy: (fromTable.name || fromTable.addr) ? "표 컬럼" : "양식 칸",
+    };
+  }
+
+  // 잘못된 칸에 올라간 파일을 반대쪽 칸으로 옮겨 주기 위한 도우미
+  function moveFilesTo(targetInputId, files, run) {
+    try {
+      const dt = new DataTransfer();
+      files.forEach(f => dt.items.add(f));
+      const el = document.getElementById(targetInputId);
+      if (el) el.files = dt.files;
+    } catch (e) { /* 브라우저가 막으면 입력칸 표시만 못 할 뿐, 처리는 그대로 진행 */ }
+    run();
+  }
+
+  /** 인식 결과를 사람이 읽을 수 있게 요약합니다. 못 찾은 항목은 빨갛게 알려 줍니다. */
+  function receiverSummaryHtml(recv, extra) {
+    const miss = [];
+    if (!recv.name)    miss.push("수령자 이름");
+    if (!recv.phone)   miss.push("연락처");
+    if (!recv.address) miss.push("주소");
+    const line = (lab, v) => v
+      ? `<div><span style="color:var(--text-muted);">${lab}</span> <b>${esc(v)}</b></div>`
+      : `<div><span style="color:var(--text-muted);">${lab}</span> <b style="color:var(--danger);">못 찾음 — 직접 입력해 주세요</b></div>`;
+    return `
+      <div style="margin-top:8px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface-alt,#fafbfc);line-height:1.7;">
+        <div style="font-weight:700;margin-bottom:4px;">읽어낸 수령정보 ${extra ? `<span style="font-weight:400;color:var(--text-muted);">(${esc(extra)})</span>` : ""}</div>
+        ${line("이름", recv.name)}
+        ${line("연락처", recv.phone)}
+        ${line("주소", recv.address)}
+        ${recv.message ? line("배송메세지", recv.message) : ""}
+        ${miss.length ? `<div style="margin-top:6px;color:var(--danger);font-weight:600;">⚠️ ${esc(miss.join(" · "))} 은(는) 위 칸에서 직접 채워 주세요.</div>` : ""}
+      </div>`;
   }
 
   /**
    * 여러 발주서를 한 번에 처리합니다 (합포장 — 지점별 발주서를 한 요청에 묶어서 출고).
    * 상품은 모든 파일에서 합치고, 수령정보는 첫 번째 파일 기준으로 채웁니다.
+   * 배송지가 여러 곳인 파일이면 여기서 등록하지 않고 '다중 등록' 칸으로 안내합니다.
    */
   async function handleOrderFiles(fileList) {
     const msgEl = document.getElementById("fOrderFileMsg");
-    msgEl.textContent = "읽는 중...";
     msgEl.style.color = "";
+    msgEl.textContent = "읽는 중...";
 
+    const files = Array.from(fileList);
+    let parsed;
     try {
-      const files = Array.from(fileList);
-      orderFilesForAttach = files.slice();   // 발주서 원본도 요청서에 함께 첨부되도록 보관
-      const parsed = [];
+      parsed = [];
       for (const f of files) parsed.push(await parseOrderFile(f));
-
-      // 수령정보는 첫 번째 파일 기준
-      const first = parsed[0].receiver;
-      const setVal = (id, v) => { if (v) document.getElementById(id).value = v; };
-      setVal("fRcvName", first.name);
-      setVal("fRcvPhone", first.phone);
-      setVal("fRcvAddr", first.address);
-      setVal("fRcvMsg", first.message);
-
-      // 모든 파일의 상품을 합쳐서 상품 줄로 추가
-      document.getElementById("productRows").innerHTML = "";
-      let added = 0;
-      parsed.forEach(p => {
-        p.products.forEach(prod => {
-          addProductRow(false);
-          const row = document.querySelector("#productRows .prow:last-child");
-          row.querySelector(".pName").value = prod.name;
-          row.querySelector(".pOpt").value = prod.option;
-          row.querySelector(".pQty").value = prod.qty;
-          added += 1;
-        });
-      });
-      if (!added) addProductRow(false);
-
-      msgEl.style.color = "var(--accent)";
-      const fileWord = files.length > 1 ? `발주서 ${files.length}건 (합포장)` : "발주서 1건";
-      msgEl.textContent = `${fileWord} · 상품 ${added}건과 수령정보를 채웠어요. 확인 후 등록해 주세요.`;
     } catch (e) {
       msgEl.style.color = "var(--danger)";
       msgEl.textContent = "파일을 읽지 못했어요: " + (e.message || "형식을 확인해 주세요.")
         + " 직접 입력해 주셔도 돼요.";
+      return;
     }
+
+    // ── 칸 분리 ① 배송지가 여러 곳인 파일은 여기가 아니라 '다중 등록' 칸입니다.
+    const multi = parsed.find(p => p.dests >= 2);
+    if (multi) {
+      msgEl.style.color = "var(--danger)";
+      msgEl.innerHTML = `이 파일은 배송지가 <b>${multi.dests}곳</b>이에요. 여기(합포장)에 올리면 한 곳으로만 나갑니다.<br>
+        위쪽 <b>📥 여러 배송지 한 번에 등록 (다중)</b> 에 올려야 배송지마다 별도 요청서가 만들어져요.
+        <button type="button" class="btn small" id="moveToBulkBtn" style="margin-top:8px;">📥 그 칸으로 옮기기</button>`;
+      const btn = document.getElementById("moveToBulkBtn");
+      if (btn) btn.addEventListener("click", () => {
+        const fi = document.getElementById("fOrderFile"); if (fi) fi.value = "";
+        msgEl.innerHTML = "";
+        moveFilesTo("fBulkFile", [files[0]], () => handleBulkUpload(files[0]));
+      });
+      return;
+    }
+
+    // ── 합포장인데 파일마다 수령지가 다르면 알려 줍니다(첫 파일 기준으로 묶이므로).
+    const sigs = [...new Set(parsed.map(p => impNorm((p.receiver.name || "") + (p.receiver.address || ""))).filter(Boolean))];
+
+    orderFilesForAttach = files.slice();   // 발주서 원본도 요청서에 함께 첨부되도록 보관
+
+    const first = parsed[0].receiver;
+    const setVal = (id, v) => { if (v) document.getElementById(id).value = v; };
+    setVal("fRcvName", first.name);
+    setVal("fRcvPhone", first.phone);
+    setVal("fRcvAddr", first.address);
+    setVal("fRcvMsg", first.message);
+
+    document.getElementById("productRows").innerHTML = "";
+    let added = 0;
+    parsed.forEach(p => {
+      p.products.forEach(prod => {
+        addProductRow(false);
+        const row = document.querySelector("#productRows .prow:last-child");
+        row.querySelector(".pName").value = prod.name;
+        row.querySelector(".pOpt").value = prod.option;
+        row.querySelector(".pQty").value = prod.qty;
+        added += 1;
+      });
+    });
+    if (!added) addProductRow(false);
+
+    const fileWord = files.length > 1 ? `발주서 ${files.length}건 (합포장)` : "발주서 1건";
+    const where = `${parsed[0].headerRow}행에서 표를 찾음 · 수령정보는 ${parsed[0].foundBy}에서 읽음`;
+    msgEl.style.color = "var(--accent)";
+    msgEl.innerHTML = `${esc(fileWord)} · 상품 <b>${added}건</b>을 채웠어요.`
+      + (sigs.length > 1 ? `<div style="color:var(--danger);font-weight:600;margin-top:6px;">⚠️ 올린 발주서들의 수령지가 서로 달라요. 합포장이 맞는지 확인해 주세요 — 첫 번째 발주서 기준으로 채웠습니다.</div>` : "")
+      + receiverSummaryHtml(first, where);
   }
 
   document.getElementById("fOrderFile").addEventListener("change", (e) => {
@@ -4195,6 +4446,25 @@
       return;
     }
     if (!orders.length) { bad("파일에서 주문건을 찾지 못했어요. 양식을 확인해 주세요."); return; }
+
+    // ── 칸 분리: 배송지가 한 곳인데 상품이 여러 개면 '합포장' 건입니다.
+    //    그 경우 여기(다중)가 아니라 '발주서로 자동 채우기' 칸에서 화면으로 확인하며 등록하는 게 맞습니다.
+    const totalProdPre = orders.reduce((a, o) => a + o.products.length, 0);
+    if (orders.length === 1 && totalProdPre >= 2) {
+      const who = orders[0].name || orders[0].address || "한 곳";
+      msg.style.color = "var(--danger)";
+      msg.innerHTML = `이 파일은 배송지가 <b>한 곳</b>이에요 (${esc(who)} · 상품 ${totalProdPre}건).<br>
+        여기는 <b>배송지가 여러 곳</b>일 때 쓰는 칸이에요. 아래 <b>📎 발주서로 자동 채우기 (선택)</b> 에 올리면
+        상품·수령정보를 화면에서 확인하고 고친 뒤 한 요청서로 등록할 수 있어요.
+        <button type="button" class="btn small" id="moveToOrderBtn" style="margin-top:8px;">📎 그 칸으로 옮기기</button>`;
+      const mb = document.getElementById("moveToOrderBtn");
+      if (mb) mb.addEventListener("click", () => {
+        const bi = document.getElementById("fBulkFile"); if (bi) bi.value = "";
+        msg.innerHTML = "";
+        moveFilesTo("fOrderFile", [file], () => handleOrderFiles([file]));
+      });
+      return;
+    }
 
     // 판매가 컬럼이 없어 자동판별이 안 되면, 위 폼의 유상/무상 선택이 반드시 필요합니다.
     if (!orders._autoBilling && !billingValue) {
@@ -4462,7 +4732,7 @@
       return seen.size;
     };
     let headerIdx = 0, headerScore = -1;
-    const scanTo = Math.min(rows.length, 25);
+    const scanTo = Math.min(rows.length, 40);
     for (let i = 0; i < scanTo; i++) {
       const s = scoreRow(rows[i]);
       if (s > headerScore) { headerScore = s; headerIdx = i; }
@@ -4552,6 +4822,22 @@
 
     const result = [...groups.values()].filter(g => g.products.length);
     if (!result.length) throw new Error(file.name + ": 표는 찾았지만 등록할 상품 줄이 없어요. 상품명/수량이 있는지 확인해 주세요.");
+
+    // 표에 수령자 칸이 아예 없는 '양식 문서'(발주서 등)라면, 표 밖 항목-값 칸에서 찾아 채웁니다.
+    if (result.every(g => !g.name && !g.phone && !g.address)) {
+      const grid = rows.map(r => (r || []).map(v => String(v == null ? "" : v).trim()));
+      const meta = extractReceiverMeta(grid, headerIdx);
+      if (meta.name || meta.addr || meta.phone) {
+        const pm = String(meta.phone || "").match(RE_PHONE);
+        result.forEach(g => {
+          g.name    = g.name    || meta.name || meta.store || "";
+          g.phone   = g.phone   || (pm ? (pm[1] + "-" + pm[2] + "-" + pm[3]) : (meta.phone || ""));
+          g.address = g.address || meta.addr || "";
+          g.message = g.message || meta.msg  || "";
+        });
+        result._metaFilled = true;
+      }
+    }
     result._warnStores = [...warnStores];   // 주소를 못 찾은 매장(참고용)
     result._autoBilling = hasPriceCol;      // 판매가 컬럼이 있으면 줄마다 유상/무상이 자동 판별됨
     return result;
