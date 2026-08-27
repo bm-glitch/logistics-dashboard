@@ -1898,14 +1898,19 @@
   }
 
   /** 상세보기의 변경 이력을 서버에서 불러옵니다. (행 펼칠 때 1회) */
+  const HISTORY_HTML = {};   // 요청번호 → 변경이력 HTML (표가 다시 그려질 때 즉시 복원용)
+
   async function loadHistoryInto(sr) {
     const box = document.querySelector(`[data-history-list="${CSS.escape(sr)}"]`);
     if (!box || box.dataset.loaded === "1") return;
     box.dataset.loaded = "1";
+    if (HISTORY_HTML[sr] !== undefined) { box.innerHTML = HISTORY_HTML[sr]; return; }
     try {
       const res = await fetch(API_CREATE + "/" + encodeURIComponent(sr) + "/history");
       if (!res.ok) throw new Error("서버 응답 " + res.status);
-      box.innerHTML = renderHistory(await res.json());
+      const html = renderHistory(await res.json());
+      HISTORY_HTML[sr] = html;
+      box.innerHTML = html;
     } catch (e) {
       box.dataset.loaded = "";
       box.innerHTML = `<span style="font-size:13px;color:var(--danger);">이력을 불러오지 못했어요. 잠시 후 다시 열어 주세요.</span>`;
@@ -2007,6 +2012,23 @@
 
   const SRCPREV_HTML = {};   // 요청번호 → 미리보기 HTML (한 번 만들면 다시 쓰기)
 
+  // '다시 시도' 버튼 — 실패했을 때만 나타납니다. 캐시를 비우고 다시 읽습니다.
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-srcretry]");
+    if (!b) return;
+    e.stopPropagation();
+    const sr = b.dataset.srcretry;
+    delete SRCPREV_HTML[sr];
+    delete ATTACH_PROMISE[sr];
+    document.querySelectorAll(`[data-srcprev="${CSS.escape(sr)}"]`).forEach(c => {
+      c.dataset.loaded = "";
+      c.style.display = "";
+      const body = c.querySelector(".srcprev-body");
+      if (body) body.innerHTML = `<span style="font-size:12.5px;color:var(--text-muted);">다시 읽는 중…</span>`;
+    });
+    loadSourcePreviewInto(sr);
+  });
+
   async function loadSourcePreviewInto(sr) {
     // 같은 요청이 표와 팝업에 동시에 열려 있을 수 있어, 화면에 있는 모든 미리보기 칸을 채웁니다.
     const cards = [...document.querySelectorAll(`[data-srcprev="${CSS.escape(sr)}"]`)].filter(c => c.dataset.loaded !== "1");
@@ -2034,25 +2056,37 @@
     }
     if (!Array.isArray(list) || !list.length) { SRCPREV_HTML[sr] = ""; collapse(); return; }
 
-    paint(`<span style="font-size:12.5px;color:var(--text-muted);">원본 파일 ${list.length}개 읽는 중…</span>`);
+    // 파일 이름을 먼저 보여줘서, 읽는 동안 멈춰 있는 것처럼 보이지 않게 합니다.
+    const headOf = (a) => {
+      const url = API_BASE + "/api/attachments/" + encodeURIComponent(a.id) + "/download";
+      return `<div class="srcname"><span style="flex:1;min-width:0;">📄 ${esc(a.fileName || "첨부파일")}</span>
+        <a href="${url}" target="_blank" rel="noopener">내려받기</a></div>`;
+    };
+    paint(list.map(a => `<div class="srcfile">${headOf(a)}<div class="srcmore">읽는 중…</div></div>`).join(""));
+
     const parts = [];
     for (const a of list) {
       const url = API_BASE + "/api/attachments/" + encodeURIComponent(a.id) + "/download";
       const name = a.fileName || "첨부파일";
-      const head = `<div class="srcname"><span style="flex:1;min-width:0;">📄 ${esc(name)}</span>
-        <a href="${url}" target="_blank" rel="noopener">내려받기</a></div>`;
+      const head = headOf(a);
       if (!PREVIEWABLE.test(name)) {
         parts.push(`<div class="srcfile">${head}<div class="srcmore">이 형식은 화면 미리보기를 지원하지 않아요 — 내려받아서 확인해 주세요.</div></div>`);
         continue;
       }
       try {
-        const res = await fetch(url);
+        // 서버가 느릴 때 무한정 기다리지 않도록 20초에서 끊습니다.
+        const ctl = new AbortController();
+        const timer = setTimeout(() => ctl.abort(), 20000);
+        let res;
+        try { res = await fetch(url, { signal: ctl.signal }); } finally { clearTimeout(timer); }
         if (!res.ok) throw new Error("서버 응답 " + res.status);
         const buf = await res.arrayBuffer();
         const req = DATA.find(x => x.requestId === sr);
         parts.push(`<div class="srcfile">${head}${sheetsToHtml(buf, name, req)}</div>`);
       } catch (e) {
-        parts.push(`<div class="srcfile">${head}<div class="srcmore" style="color:var(--danger);">파일을 읽지 못했어요 (${esc(e.message || "오류")}) — 내려받아 확인해 주세요.</div></div>`);
+        const why = (e && e.name === "AbortError") ? "서버 응답이 20초를 넘었어요" : esc((e && e.message) || "오류");
+        parts.push(`<div class="srcfile">${head}<div class="srcmore" style="color:var(--danger);">파일을 읽지 못했어요 (${why})
+          <button type="button" class="btn ghost small" data-srcretry="${esc(sr)}" style="margin-left:6px;">다시 시도</button></div></div>`);
       }
     }
     const html = parts.join("")
@@ -2755,6 +2789,17 @@
         refreshAll();
       });
     });
+
+    // 펼쳐 둔 상세는 표를 다시 그릴 때 내용이 비워집니다.
+    // (30초마다 자동 새로고침이 돌아서 '불러오는 중…'에서 멈춰 있던 문제)
+    // → 여기서 곧바로 다시 채웁니다. 이미 받아둔 내용은 캐시에서 즉시 복원돼 서버를 다시 부르지 않아요.
+    expanded.forEach(id => {
+      if (!body.querySelector(`tr[data-detail="${CSS.escape(id)}"]`)) return;
+      loadAttachmentsInto(id);
+      loadHistoryInto(id);
+      loadSourcePreviewInto(id);
+    });
+    if (expanded.size) refreshLineStocks();
 
     updateSelectionUI();
   }
