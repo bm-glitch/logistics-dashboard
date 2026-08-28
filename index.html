@@ -4370,8 +4370,18 @@
       return;
     }
 
-    // ── 합포장인데 파일마다 수령지가 다르면 알려 줍니다(첫 파일 기준으로 묶이므로).
+    // ── 합포장은 '여러 발주서 → 같은 한 곳'일 때만 안전합니다.
+    //    수령지가 다르면 첫 파일 주소로 조용히 합쳐버려서, 다른 지점 상품이 엉뚱한 곳으로 나갈 수 있습니다.
+    //    그래서 경고만 하고 넘어가지 않고, 아예 막습니다.
     const sigs = [...new Set(parsed.map(p => impNorm((p.receiver.name || "") + (p.receiver.address || ""))).filter(Boolean))];
+    if (sigs.length > 1) {
+      msgEl.style.color = "var(--danger)";
+      msgEl.innerHTML = `⚠️ 올린 발주서들의 <b>수령지가 서로 달라요</b>.<br>
+        이 칸은 <b>합포장(한 곳으로 여러 상품)</b> 전용이라, 지금처럼 지점마다 주소가 다르면
+        한 곳으로 합쳐 등록할 수 없어요 — 다른 지점 상품이 엉뚱한 곳으로 나갈 수 있습니다.<br>
+        수령지가 같은 파일들끼리만 함께 올리거나, <b>한 번에 하나씩</b> 따로 올려서 각각 등록해 주세요.`;
+      return;
+    }
 
     orderFilesForAttach = files.concat(fileStore.fOrderRefFiles);   // 발주서 + ② 참고용 서류 전부 요청서에 함께 첨부되도록 보관
 
@@ -4401,7 +4411,6 @@
     const where = `${parsed[0].headerRow}행에서 표를 찾음 · 수령정보는 ${parsed[0].foundBy}에서 읽음`;
     msgEl.style.color = "var(--accent)";
     msgEl.innerHTML = `${esc(fileWord)} · 상품 <b>${added}건</b>을 채웠어요.${esc(refWord)}`
-      + (sigs.length > 1 ? `<div style="color:var(--danger);font-weight:600;margin-top:6px;">⚠️ 올린 발주서들의 수령지가 서로 달라요. 합포장이 맞는지 확인해 주세요 — 첫 번째 발주서 기준으로 채웠습니다.</div>` : "")
       + receiverSummaryHtml(first, where);
   }
 
