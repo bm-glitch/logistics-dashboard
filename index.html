@@ -3097,6 +3097,10 @@
 
   // 요청서 제출 시 함께 올릴 첨부파일. 발주서 자동채우기로 올린 원본도 여기에 담아 함께 첨부합니다.
   let orderFilesForAttach = [];
+  // 여러 번에 걸쳐(따로따로) 올린 파일도 이전 것이 사라지지 않도록 쌓아두는 저장소.
+  // resetForm() 등 초기화 코드보다 먼저 선언돼야 해서 위쪽에 둡니다.
+  const fileStore = { fOrderFile: [], fAttachFiles: [] };
+  const fileKey = (f) => f.name + "|" + f.size + "|" + f.lastModified;
 
   /** 첨부파일 칸(fAttachFiles)의 파일 + 발주서 원본을 모아 서버에 업로드합니다. */
   async function uploadAttachments(sr) {
@@ -3343,8 +3347,10 @@
     if (typeof setReqType === "function") setReqType("출고요청");
     // 첨부파일 관련 상태 초기화
     orderFilesForAttach = [];
+    fileStore.fAttachFiles = [];
     const af = document.getElementById("fAttachFiles"); if (af) af.value = "";
     const al = document.getElementById("fAttachList"); if (al) al.textContent = "";
+    fileStore.fOrderFile = [];
     const of = document.getElementById("fOrderFile"); if (of) of.value = "";
     const ofn = document.getElementById("fOrderFileName"); if (ofn) ofn.textContent = "";
     const bf = document.getElementById("fBulkFile"); if (bf) bf.value = "";
@@ -3363,8 +3369,10 @@
     productSeq = 0;
     addProductRow(false);
     orderFilesForAttach = [];
+    fileStore.fAttachFiles = [];
     const af = document.getElementById("fAttachFiles"); if (af) af.value = "";
     const al = document.getElementById("fAttachList"); if (al) al.textContent = "";
+    fileStore.fOrderFile = [];
     const of = document.getElementById("fOrderFile"); if (of) of.value = "";
     const ofn = document.getElementById("fOrderFileName"); if (ofn) ofn.textContent = "";
     const bf = document.getElementById("fBulkFile"); if (bf) bf.value = "";
@@ -4231,13 +4239,18 @@
   }
 
   // 잘못된 칸에 올라간 파일을 반대쪽 칸으로 옮겨 주기 위한 도우미
+  // (저장소가 있는 칸이면 그 칸의 기존 선택을 이 파일들로 완전히 바꿉니다 — 옮기는 것이지 더하는 게 아니라서)
   function moveFilesTo(targetInputId, files, run) {
-    try {
-      const dt = new DataTransfer();
-      files.forEach(f => dt.items.add(f));
-      const el = document.getElementById(targetInputId);
-      if (el) el.files = dt.files;
-    } catch (e) { /* 브라우저가 막으면 입력칸 표시만 못 할 뿐, 처리는 그대로 진행 */ }
+    if (fileStore[targetInputId] !== undefined) {
+      setStoreFiles(targetInputId, files.slice());
+    } else {
+      try {
+        const dt = new DataTransfer();
+        files.forEach(f => dt.items.add(f));
+        const el = document.getElementById(targetInputId);
+        if (el) el.files = dt.files;
+      } catch (e) { /* 브라우저가 막으면 입력칸 표시만 못 할 뿐, 처리는 그대로 진행 */ }
+    }
     run();
   }
 
@@ -4292,9 +4305,12 @@
         <button type="button" class="btn small" id="moveToBulkBtn" style="margin-top:8px;">📥 그 칸으로 옮기기</button>`;
       const btn = document.getElementById("moveToBulkBtn");
       if (btn) btn.addEventListener("click", () => {
+        // 옮기고 나면 발주서 칸 저장소·표시를 완전히 비웁니다 (안 비우면 다음 파일과 잘못 합쳐집니다)
+        fileStore.fOrderFile = [];
         const fi = document.getElementById("fOrderFile"); if (fi) fi.value = "";
+        document.getElementById("fOrderFileName").innerHTML = "";
         msgEl.innerHTML = "";
-        moveFilesTo("fBulkFile", [files[0]], () => handleBulkUpload(files[0]));
+        moveFilesTo("fBulkFile", [files[0]], refreshBulkFile);
       });
       return;
     }
@@ -4333,14 +4349,25 @@
       + receiverSummaryHtml(first, where);
   }
 
-  document.getElementById("fOrderFile").addEventListener("change", (e) => {
-    if (e.target.files.length) {
-      handleOrderFiles(e.target.files);
+  /** fOrderFile 저장소가 바뀔 때마다: 칩을 다시 그리고, 쌓인 파일 전체로 다시 채웁니다. */
+  function refreshOrderFile() {
+    const store = fileStore.fOrderFile;
+    renderFileChips(document.getElementById("fOrderFileName"), store, (i) => {
+      removeFileFromStore("fOrderFile", i);
+      refreshOrderFile();
+    });
+    if (store.length) {
+      handleOrderFiles(store);
     } else {
-      // ×로 마지막 발주서를 뺐을 때 — 이미 채워진 상품·수령정보는 그대로 두고 안내문만 정리합니다.
+      // 마지막 발주서를 뺐을 때 — 이미 채워진 상품·수령정보는 그대로 두고 안내문만 정리합니다.
       orderFilesForAttach = [];
       document.getElementById("fOrderFileMsg").innerHTML = "";
     }
+  }
+  document.getElementById("fOrderFile").addEventListener("change", (e) => {
+    // 브라우저가 방금 고른/끌어다 놓은 파일만 e.target.files 에 담아 주므로, 기존 목록에 더합니다.
+    addFilesToStore("fOrderFile", e.target.files);
+    refreshOrderFile();
   });
 
   // ===== 여러 배송지 한 번에 등록 (다중 업로드) =====
@@ -4516,8 +4543,9 @@
       const mb = document.getElementById("moveToOrderBtn");
       if (mb) mb.addEventListener("click", () => {
         const bi = document.getElementById("fBulkFile"); if (bi) bi.value = "";
+        document.getElementById("fBulkFileName").innerHTML = "";
         msg.innerHTML = "";
-        moveFilesTo("fOrderFile", [file], () => handleOrderFiles([file]));
+        moveFilesTo("fOrderFile", [file], refreshOrderFile);
       });
       return;
     }
@@ -4901,14 +4929,37 @@
 
   document.getElementById("dlFreeTemplate").addEventListener("click", () => downloadBulkTemplate("free"));
   document.getElementById("dlPaidTemplate").addEventListener("click", () => downloadBulkTemplate("paid"));
-  document.getElementById("fBulkFile").addEventListener("change", (e) => {
-    if (e.target.files.length) handleBulkUpload(e.target.files[0]);
+  /** fBulkFile 은 원래부터 한 번에 파일 1개만 쓰는 칸이라 저장소가 필요 없습니다 — 항상 새로 채웁니다. */
+  function refreshBulkFile() {
+    const input = document.getElementById("fBulkFile");
+    const files = Array.from(input.files || []);
+    renderFileChips(document.getElementById("fBulkFileName"), files, () => {
+      setStoreFilesSingle(input, []);
+      document.getElementById("fBulkMsg").textContent = "";
+      document.getElementById("fBulkFileName").innerHTML = "";
+    });
+    if (files.length) handleBulkUpload(files[0]);
     else document.getElementById("fBulkMsg").textContent = "";
-  });
+  }
+  /** fBulkFile 전용 — 저장소 없이 input.files 만 다시 채웁니다 (× 로 비울 때 씁니다). */
+  function setStoreFilesSingle(input, files) {
+    const dt = new DataTransfer();
+    files.forEach(f => dt.items.add(f));
+    input.files = dt.files;
+  }
+  document.getElementById("fBulkFile").addEventListener("change", refreshBulkFile);
 
-  // 첨부파일 칸에 파일을 고르면, 고른 파일을 '이름 + × 삭제' 칩으로 보여줍니다.
+  /** fAttachFiles 저장소가 바뀔 때마다 칩을 다시 그립니다. */
+  function refreshAttachFiles() {
+    renderFileChips(document.getElementById("fAttachList"), fileStore.fAttachFiles, (i) => {
+      removeFileFromStore("fAttachFiles", i);
+      refreshAttachFiles();
+    });
+  }
+  // 첨부파일 칸에 파일을 고르면(또는 끌어다 놓으면), 기존에 고른 파일들에 더합니다.
   document.getElementById("fAttachFiles").addEventListener("change", (e) => {
-    renderFileChips(document.getElementById("fAttachList"), e.target);
+    addFilesToStore("fAttachFiles", e.target.files);
+    refreshAttachFiles();
   });
 
   document.getElementById("addProductBtn").addEventListener("click", () => addProductRow(true));
@@ -5070,36 +5121,55 @@
   setInterval(fetchFromServer, 30000);
   loadMatchMemory();   // 학습된 상품매칭 불러오기(자동매칭에 최우선 적용)
 
-  /** 남긴 파일들로 input.files 를 다시 만들고 change 를 태웁니다 — 이후 처리는 change 리스너가 이어받습니다. */
-  function setInputFiles(input, keepFiles) {
-    try {
-      const dt = new DataTransfer();
-      keepFiles.forEach(f => dt.items.add(f));
-      input.files = dt.files;
-    } catch (err) { /* 일부 구형 브라우저는 files 를 직접 못 바꿉니다 — 이 경우 삭제 버튼은 동작하지 않습니다 */ }
-    input.dispatchEvent(new Event("change", { bubbles: true }));
+  function setStoreFiles(inputId, files) {
+    const input = document.getElementById(inputId);
+    const dt = new DataTransfer();
+    files.forEach(f => dt.items.add(f));
+    input.files = dt.files;
+    fileStore[inputId] = files;
   }
 
-  /** 선택된 파일들을 '이름 + × 삭제' 칩으로 보여줍니다. ×를 누르면 그 파일만 빼고 input 을 다시 채웁니다. */
-  function renderFileChips(container, input) {
-    const files = Array.from(input.files || []);
-    if (!files.length) { container.innerHTML = ""; return; }
-    container.innerHTML = files.map((f, i) =>
+  /** 새로 고르거나 끌어다 놓은 파일을 기존 목록에 더합니다 (같은 파일 중복 추가는 건너뜀). */
+  function addFilesToStore(inputId, newFiles) {
+    const store = fileStore[inputId] || [];
+    const seen = new Set(store.map(fileKey));
+    const merged = store.slice();
+    Array.from(newFiles || []).forEach(f => {
+      const k = fileKey(f);
+      if (!seen.has(k)) { merged.push(f); seen.add(k); }
+    });
+    setStoreFiles(inputId, merged);
+    return merged;
+  }
+
+  /** ×로 하나만 뺍니다. */
+  function removeFileFromStore(inputId, index) {
+    const store = (fileStore[inputId] || []).slice();
+    store.splice(index, 1);
+    setStoreFiles(inputId, store);
+    return store;
+  }
+
+  /** 파일들을 '이름 + × 삭제' 칩으로 보여줍니다. onRemove(index) 가 있으면 × 버튼이 생깁니다. */
+  function renderFileChips(container, files, onRemove) {
+    const list = Array.from(files || []);
+    if (!list.length) { container.innerHTML = ""; return; }
+    container.innerHTML = list.map((f, i) =>
       `<span class="filechip"><span class="fc-name">${esc(f.name)}</span>`
-      + `<button type="button" class="fc-x" data-i="${i}" title="이 파일 빼기" aria-label="${esc(f.name)} 삭제">×</button></span>`
+      + (onRemove ? `<button type="button" class="fc-x" data-i="${i}" title="이 파일 빼기" aria-label="${esc(f.name)} 삭제">×</button>` : "")
+      + `</span>`
     ).join("");
+    if (!onRemove) return;
     container.querySelectorAll(".fc-x").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const i = +btn.dataset.i;
-        setInputFiles(input, files.filter((_, idx) => idx !== i));
-      });
+      btn.addEventListener("click", () => onRemove(+btn.dataset.i));
     });
   }
 
   // ===== 드래그앤드롭 업로드 배너 =====
   // 배너(label) 자체가 드롭존입니다. 클릭하면 <label for="..."> 가 알아서 파일 선택창을 엽니다.
-  // 파일을 끌어다 놓으면 그 input 에 실어서 기존 change 이벤트를 그대로 태웁니다 — 처리 로직은 손대지 않습니다.
-  function enableDropZone(inputId, dropId, nameId) {
+  // 파일을 끌어다 놓으면 '방금 놓은 파일'만 그 input 에 실어서 change 를 태웁니다.
+  // (기존 목록과 합치는 일은 각 change 리스너 쪽에서 addFilesToStore 로 처리합니다)
+  function enableDropZone(inputId, dropId) {
     const input = document.getElementById(inputId);
     const drop = document.getElementById(dropId);
     if (!input || !drop) return;
@@ -5113,21 +5183,17 @@
       if (!files || !files.length) return;
       try {
         const dt = new DataTransfer();
-        // multiple 이 없는 입력칸(예: 다중등록 양식)은 첫 파일만 받습니다.
+        // multiple 이 없는 입력칸(다중등록 양식)은 첫 파일만 받습니다.
         const list = input.multiple ? Array.from(files) : [files[0]];
         for (const f of list) dt.items.add(f);
         input.files = dt.files;
       } catch (err) { /* 일부 브라우저 미지원 시 클릭 업로드로 대체 */ }
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
-
-    // 어떤 파일이 선택됐는지 배너 아래에 '이름 + × 삭제' 칩으로 보여줍니다.
-    const nameEl = nameId ? document.getElementById(nameId) : null;
-    if (nameEl) input.addEventListener("change", () => renderFileChips(nameEl, input));
   }
-  enableDropZone("fBulkFile", "fBulkDrop", "fBulkFileName");
-  enableDropZone("fOrderFile", "fOrderDrop", "fOrderFileName");
-  enableDropZone("fAttachFiles", "fAttachDrop", null);  // 이름 표시는 기존 #fAttachList 리스너가 담당
+  enableDropZone("fBulkFile", "fBulkDrop");
+  enableDropZone("fOrderFile", "fOrderDrop");
+  enableDropZone("fAttachFiles", "fAttachDrop");
 
   // Slack 링크 버튼(#form)으로 들어온 경우, 요청서 작성 화면으로 바로 이동합니다.
   if (window.location.hash === "#form") {
