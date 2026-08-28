@@ -778,8 +778,20 @@
     position:absolute !important; width:1px; height:1px; padding:0; margin:-1px;
     overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
   }
-  .dz-filelist{ margin-top:8px; font-size:12.5px; color:var(--text-muted); }
+  .dz-filelist{ margin-top:8px; font-size:12.5px; color:var(--text-muted); display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
   .dz-filelist b{ color:var(--text); }
+  .filechip{
+    display:inline-flex; align-items:center; gap:6px; max-width:100%;
+    background:var(--surface); border:1px solid var(--border); border-radius:99px;
+    padding:3px 6px 3px 10px; font-size:12px; color:var(--text);
+  }
+  .filechip .fc-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:220px; }
+  .filechip .fc-x{
+    flex:none; width:18px; height:18px; line-height:16px; text-align:center; padding:0;
+    border:none; border-radius:50%; background:var(--surface-alt); color:var(--text-muted);
+    font-size:13px; cursor:pointer;
+  }
+  .filechip .fc-x:hover{ background:var(--danger-soft); color:var(--danger); }
 
   /* ④ 상세보기 2단 구성 — 왼쪽 요청 정보 / 오른쪽 요청자 원본 파일 */
   .detailgrid{ display:grid; grid-template-columns:minmax(0,1fr) minmax(460px,48%); gap:16px; align-items:start; }
@@ -4322,7 +4334,13 @@
   }
 
   document.getElementById("fOrderFile").addEventListener("change", (e) => {
-    if (e.target.files.length) handleOrderFiles(e.target.files);
+    if (e.target.files.length) {
+      handleOrderFiles(e.target.files);
+    } else {
+      // ×로 마지막 발주서를 뺐을 때 — 이미 채워진 상품·수령정보는 그대로 두고 안내문만 정리합니다.
+      orderFilesForAttach = [];
+      document.getElementById("fOrderFileMsg").innerHTML = "";
+    }
   });
 
   // ===== 여러 배송지 한 번에 등록 (다중 업로드) =====
@@ -4885,14 +4903,12 @@
   document.getElementById("dlPaidTemplate").addEventListener("click", () => downloadBulkTemplate("paid"));
   document.getElementById("fBulkFile").addEventListener("change", (e) => {
     if (e.target.files.length) handleBulkUpload(e.target.files[0]);
+    else document.getElementById("fBulkMsg").textContent = "";
   });
 
-  // 첨부파일 칸에 파일을 고르면, 고른 파일 이름을 아래에 보여줍니다.
+  // 첨부파일 칸에 파일을 고르면, 고른 파일을 '이름 + × 삭제' 칩으로 보여줍니다.
   document.getElementById("fAttachFiles").addEventListener("change", (e) => {
-    const el = document.getElementById("fAttachList");
-    const files = Array.from(e.target.files || []);
-    if (!files.length) { el.textContent = ""; return; }
-    el.innerHTML = "선택한 파일: " + files.map(f => `<b style="color:var(--text);">${esc(f.name)}</b>`).join(", ");
+    renderFileChips(document.getElementById("fAttachList"), e.target);
   });
 
   document.getElementById("addProductBtn").addEventListener("click", () => addProductRow(true));
@@ -5054,6 +5070,32 @@
   setInterval(fetchFromServer, 30000);
   loadMatchMemory();   // 학습된 상품매칭 불러오기(자동매칭에 최우선 적용)
 
+  /** 남긴 파일들로 input.files 를 다시 만들고 change 를 태웁니다 — 이후 처리는 change 리스너가 이어받습니다. */
+  function setInputFiles(input, keepFiles) {
+    try {
+      const dt = new DataTransfer();
+      keepFiles.forEach(f => dt.items.add(f));
+      input.files = dt.files;
+    } catch (err) { /* 일부 구형 브라우저는 files 를 직접 못 바꿉니다 — 이 경우 삭제 버튼은 동작하지 않습니다 */ }
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  /** 선택된 파일들을 '이름 + × 삭제' 칩으로 보여줍니다. ×를 누르면 그 파일만 빼고 input 을 다시 채웁니다. */
+  function renderFileChips(container, input) {
+    const files = Array.from(input.files || []);
+    if (!files.length) { container.innerHTML = ""; return; }
+    container.innerHTML = files.map((f, i) =>
+      `<span class="filechip"><span class="fc-name">${esc(f.name)}</span>`
+      + `<button type="button" class="fc-x" data-i="${i}" title="이 파일 빼기" aria-label="${esc(f.name)} 삭제">×</button></span>`
+    ).join("");
+    container.querySelectorAll(".fc-x").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const i = +btn.dataset.i;
+        setInputFiles(input, files.filter((_, idx) => idx !== i));
+      });
+    });
+  }
+
   // ===== 드래그앤드롭 업로드 배너 =====
   // 배너(label) 자체가 드롭존입니다. 클릭하면 <label for="..."> 가 알아서 파일 선택창을 엽니다.
   // 파일을 끌어다 놓으면 그 input 에 실어서 기존 change 이벤트를 그대로 태웁니다 — 처리 로직은 손대지 않습니다.
@@ -5079,16 +5121,9 @@
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
 
-    // 어떤 파일이 선택됐는지 배너 아래에 이름으로 보여줍니다.
+    // 어떤 파일이 선택됐는지 배너 아래에 '이름 + × 삭제' 칩으로 보여줍니다.
     const nameEl = nameId ? document.getElementById(nameId) : null;
-    if (nameEl) {
-      input.addEventListener("change", () => {
-        const files = Array.from(input.files || []);
-        nameEl.innerHTML = files.length
-          ? "선택한 파일: " + files.map(f => "<b>" + esc(f.name) + "</b>").join(", ")
-          : "";
-      });
-    }
+    if (nameEl) input.addEventListener("change", () => renderFileChips(nameEl, input));
   }
   enableDropZone("fBulkFile", "fBulkDrop", "fBulkFileName");
   enableDropZone("fOrderFile", "fOrderDrop", "fOrderFileName");
