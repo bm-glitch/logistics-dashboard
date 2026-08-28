@@ -761,6 +761,26 @@
     border:1px solid var(--border); background:var(--surface); color:var(--text); cursor:pointer;
   }
 
+  /* 드래그앤드롭 업로드 배너 — 클릭도 되고, 파일을 끌어다 놓아도 됩니다 */
+  .dropzone{
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    border:1.5px dashed var(--border); border-radius:10px; padding:16px 14px;
+    cursor:pointer; background:var(--surface-alt); text-align:center;
+    transition:border-color .15s ease, background-color .15s ease;
+  }
+  .dropzone:hover{ border-color:var(--accent); }
+  .dropzone.dragover{ border-color:var(--accent); background:var(--accent-soft); }
+  .dropzone .dz-icon{ font-size:22px; line-height:1; flex:none; }
+  .dropzone .dz-text{ font-size:13px; color:var(--text); line-height:1.5; }
+  .dropzone .dz-text b{ color:var(--accent); }
+  .dropzone .dz-sub{ display:block; font-size:11.5px; color:var(--text-muted); margin-top:2px; }
+  .dz-input{
+    position:absolute !important; width:1px; height:1px; padding:0; margin:-1px;
+    overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+  }
+  .dz-filelist{ margin-top:8px; font-size:12.5px; color:var(--text-muted); }
+  .dz-filelist b{ color:var(--text); }
+
   /* ④ 상세보기 2단 구성 — 왼쪽 요청 정보 / 오른쪽 요청자 원본 파일 */
   .detailgrid{ display:grid; grid-template-columns:minmax(0,1fr) minmax(460px,48%); gap:16px; align-items:start; }
   .detailgrid > div{ min-width:0; }
@@ -1027,7 +1047,12 @@
               <button type="button" class="btn ghost small" id="dlPaidTemplate">📄 유상 양식 받기</button>
             </div>
             <label style="font-size:12px;font-weight:600;color:var(--text-muted);">채운 양식 올리기</label>
-            <input id="fBulkFile" type="file" accept=".xls,.xlsx" style="margin-top:4px;">
+            <label for="fBulkFile" class="dropzone" id="fBulkDrop" style="margin-top:4px;">
+              <span class="dz-icon">📥</span>
+              <span class="dz-text"><b>클릭</b>하거나 파일을 여기로 끌어다 놓으세요<span class="dz-sub">.xls, .xlsx</span></span>
+            </label>
+            <input id="fBulkFile" type="file" accept=".xls,.xlsx" class="dz-input">
+            <div id="fBulkFileName" class="dz-filelist"></div>
             <div id="fBulkMsg" style="margin-top:8px;font-size:13px;"></div>
           </div>
         </div>
@@ -1042,7 +1067,12 @@
               타부서에서 받은 발주서(.xls/.xlsx)를 올리면 상품·수령정보가 자동으로 채워져요.
               여러 지점 발주서를 동시에 선택하면 한 요청(합포장)으로 묶여요.
             </div>
-            <input id="fOrderFile" type="file" accept=".xls,.xlsx" multiple>
+            <label for="fOrderFile" class="dropzone" id="fOrderDrop">
+              <span class="dz-icon">📎</span>
+              <span class="dz-text"><b>클릭</b>하거나 파일을 여기로 끌어다 놓으세요 (여러 개 가능)<span class="dz-sub">.xls, .xlsx</span></span>
+            </label>
+            <input id="fOrderFile" type="file" accept=".xls,.xlsx" multiple class="dz-input">
+            <div id="fOrderFileName" class="dz-filelist"></div>
             <div class="ferr" id="fOrderFileMsg" style="margin-top:6px;font-size:13px;"></div>
           </div>
         </div>
@@ -1110,7 +1140,11 @@
             <span class="hint">특이사항·참고자료·원본 파일 등, 물류팀이 확인할 파일을 올려요</span>
           </div>
           <div class="fsec-body">
-            <input id="fAttachFiles" type="file" multiple>
+            <label for="fAttachFiles" class="dropzone" id="fAttachDrop">
+              <span class="dz-icon">🗂</span>
+              <span class="dz-text"><b>클릭</b>하거나 파일을 여기로 끌어다 놓으세요 (여러 개 가능)</span>
+            </label>
+            <input id="fAttachFiles" type="file" multiple class="dz-input">
             <div class="hint" style="margin-top:8px;">
               여러 개 올릴 수 있어요. 등록하면 물류팀이 대장부 상세보기와 물류대장에서 파일을 열어볼 수 있어요.
               위에서 발주서를 올려 자동채우기를 했다면, 그 발주서 원본도 함께 첨부돼요.
@@ -3300,7 +3334,9 @@
     const af = document.getElementById("fAttachFiles"); if (af) af.value = "";
     const al = document.getElementById("fAttachList"); if (al) al.textContent = "";
     const of = document.getElementById("fOrderFile"); if (of) of.value = "";
+    const ofn = document.getElementById("fOrderFileName"); if (ofn) ofn.textContent = "";
     const bf = document.getElementById("fBulkFile"); if (bf) bf.value = "";
+    const bfn = document.getElementById("fBulkFileName"); if (bfn) bfn.textContent = "";
     const bm = document.getElementById("fBulkMsg"); if (bm) bm.textContent = "";
     if (!keepBanner) showBanner("");
   }
@@ -3318,7 +3354,9 @@
     const af = document.getElementById("fAttachFiles"); if (af) af.value = "";
     const al = document.getElementById("fAttachList"); if (al) al.textContent = "";
     const of = document.getElementById("fOrderFile"); if (of) of.value = "";
+    const ofn = document.getElementById("fOrderFileName"); if (ofn) ofn.textContent = "";
     const bf = document.getElementById("fBulkFile"); if (bf) bf.value = "";
+    const bfn = document.getElementById("fBulkFileName"); if (bfn) bfn.textContent = "";
     const bm = document.getElementById("fBulkMsg"); if (bm) bm.textContent = "";
   }
 
@@ -5016,27 +5054,45 @@
   setInterval(fetchFromServer, 30000);
   loadMatchMemory();   // 학습된 상품매칭 불러오기(자동매칭에 최우선 적용)
 
-  // ===== 드래그앤드롭 파일 업로드 (발주서·다중배송·첨부 입력칸에 파일을 끌어다 놓기) =====
-  function enableDropZone(inputId) {
+  // ===== 드래그앤드롭 업로드 배너 =====
+  // 배너(label) 자체가 드롭존입니다. 클릭하면 <label for="..."> 가 알아서 파일 선택창을 엽니다.
+  // 파일을 끌어다 놓으면 그 input 에 실어서 기존 change 이벤트를 그대로 태웁니다 — 처리 로직은 손대지 않습니다.
+  function enableDropZone(inputId, dropId, nameId) {
     const input = document.getElementById(inputId);
-    if (!input) return;
-    const area = input.parentElement || input;
+    const drop = document.getElementById(dropId);
+    if (!input || !drop) return;
     const stop = (e) => { e.preventDefault(); e.stopPropagation(); };
-    ["dragenter", "dragover"].forEach(ev => area.addEventListener(ev, (e) => { stop(e); area.style.outline = "2px dashed var(--accent)"; area.style.outlineOffset = "3px"; area.style.borderRadius = "8px"; }));
-    ["dragleave", "dragend"].forEach(ev => area.addEventListener(ev, (e) => { stop(e); area.style.outline = ""; }));
-    area.addEventListener("drop", (e) => {
-      stop(e); area.style.outline = "";
+
+    ["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, (e) => { stop(e); drop.classList.add("dragover"); }));
+    ["dragleave", "dragend"].forEach(ev => drop.addEventListener(ev, (e) => { stop(e); drop.classList.remove("dragover"); }));
+    drop.addEventListener("drop", (e) => {
+      stop(e); drop.classList.remove("dragover");
       const files = e.dataTransfer && e.dataTransfer.files;
       if (!files || !files.length) return;
       try {
         const dt = new DataTransfer();
-        for (const f of files) dt.items.add(f);
+        // multiple 이 없는 입력칸(예: 다중등록 양식)은 첫 파일만 받습니다.
+        const list = input.multiple ? Array.from(files) : [files[0]];
+        for (const f of list) dt.items.add(f);
         input.files = dt.files;
-        input.dispatchEvent(new Event("change", { bubbles: true }));
       } catch (err) { /* 일부 브라우저 미지원 시 클릭 업로드로 대체 */ }
+      input.dispatchEvent(new Event("change", { bubbles: true }));
     });
+
+    // 어떤 파일이 선택됐는지 배너 아래에 이름으로 보여줍니다.
+    const nameEl = nameId ? document.getElementById(nameId) : null;
+    if (nameEl) {
+      input.addEventListener("change", () => {
+        const files = Array.from(input.files || []);
+        nameEl.innerHTML = files.length
+          ? "선택한 파일: " + files.map(f => "<b>" + esc(f.name) + "</b>").join(", ")
+          : "";
+      });
+    }
   }
-  ["fBulkFile", "fOrderFile", "fAttachFiles"].forEach(enableDropZone);
+  enableDropZone("fBulkFile", "fBulkDrop", "fBulkFileName");
+  enableDropZone("fOrderFile", "fOrderDrop", "fOrderFileName");
+  enableDropZone("fAttachFiles", "fAttachDrop", null);  // 이름 표시는 기존 #fAttachList 리스너가 담당
 
   // Slack 링크 버튼(#form)으로 들어온 경우, 요청서 작성 화면으로 바로 이동합니다.
   if (window.location.hash === "#form") {
