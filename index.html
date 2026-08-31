@@ -4923,12 +4923,13 @@
    *  · 수량은 출고수량 > 수주수량 > 수량 순으로 인식
    * ======================================================================= */
   const IMPORT_ALIASES = {
-    name:   ["수령자이름","수령자 이름","수령자명","수령인","수취인","수취인명","받는분","받는사람","받으실분","고객명","성명","담당자명","담당자","받는이","수하인","수하인명"],
+    name:   ["수령자이름","수령자 이름","수령자명","수령인","수령인명","수취인","수취인명","받는분","받는사람","받으실분","고객명","성명","담당자명","담당자","받는이","수하인","수하인명"],
     store:  ["매장","매장명","점포명","점명","지점","지점명","판매처","거래처","거래처명","납품처","배송처","도착지","출고처","점포"],
-    phoneMobile: ["핸드폰","휴대폰","수취인핸드폰번호","수취인휴대폰","담당자핸드폰","고객핸드폰","핸폰","휴대전화","모바일"],
-    phone:  ["수령자연락처","수령자 연락처","수령인연락처","연락처","전화번호","전화","수취인연락처","수취인전화번호","받는분연락처","매장연락처","담당자연락처"],
+    phoneMobile: ["핸드폰","휴대폰","수령인핸드폰번호","수취인핸드폰번호","수취인휴대폰","담당자핸드폰","고객핸드폰","핸폰","휴대전화","모바일"],
+    phone:  ["수령자연락처","수령자 연락처","수령인연락처","수령인전화번호","연락처","전화번호","전화","수취인연락처","수취인전화번호","받는분연락처","매장연락처","담당자연락처"],
     zip:    ["수령자우편번호","우편번호","우편","zip"],
     addr:   ["수령자주소","수령자 주소","수령인주소","주소","배송지","배송주소","받는주소","수취인주소","도착지주소","매장주소","담당자주소"],
+    addr2:  ["상세주소","나머지주소","상세 주소","상세주소2","참고주소"],
     msg:    ["배송메세지","배송메시지","배송 메세지","배송요청","배송요청사항","요청사항","배송메모","전달사항","배송시요청사항"],
     pname:  ["상품명","제품명","품명","상품","품목","품목명","상품이름","공장상품명"],
     popt:   ["옵션","옵션명","옵션정보","옵션값","색상","사이즈","규격"],
@@ -5020,7 +5021,7 @@
 
     // 3) 데이터행 순회 — 매장/수령자 forward-fill, 소계·빈줄 스킵
     const groups = new Map();
-    let carryStore = "", carryName = "", carryPhone = "", carryAddr = "", carryMsg = "";
+    let carryStore = "", carryName = "", carryPhone = "", carryAddr = "", carryAddr2 = "", carryMsg = "";
     const warnStores = new Set();
 
     for (let i = headerIdx + 1; i < rows.length; i++) {
@@ -5033,6 +5034,9 @@
       const nm    = get(r, "name");  if (nm)    carryName = nm;
       const ph    = get(r, "phoneMobile") || get(r, "phone"); if (ph) carryPhone = ph;
       const ad    = get(r, "addr");  if (ad)    carryAddr = ad;
+      // "상세주소"(동/호수 등)가 따로 한 칸 더 있는 양식(현대M몰 등)이 있어서, 있으면 주소 뒤에 붙입니다.
+      // 안 붙이면 동·호수가 통째로 빠져서 배송 사고로 이어질 수 있습니다.
+      const ad2   = get(r, "addr2"); if (ad2)   carryAddr2 = ad2;
       const mg    = get(r, "msg");   if (mg)    carryMsg = mg;
 
       const pname = get(r, "pname");
@@ -5050,7 +5054,8 @@
       const rowBilling = hasPriceCol ? (price > 0 ? "paid" : "free") : "";
 
       // 수령자 결정: 주소가 직접 있으면 그 수령자, 없고 매장만 있으면 주소록에서 채움
-      let name = carryName, phone = carryPhone, address = carryAddr;
+      let name = carryName, phone = carryPhone;
+      let address = carryAddr2 ? [carryAddr, carryAddr2].filter(Boolean).join(" ") : carryAddr;
       let storeMatched = true;
       if (!address && carryStore) {
         const s = matchStore(carryStore);
