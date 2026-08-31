@@ -1281,7 +1281,7 @@
                 <th class="num">수량</th>
                 <th class="num col-extra">가용재고</th>
                 <th class="col-due"><span class="dueLbl">출고 희망일</span></th>
-                <th class="col-recv col-extra">수령자</th>
+                <th class="col-recv">수령자</th>
                 <th class="col-to col-extra">수령처</th>
                 <th>상태</th>
                 <th class="col-track">송장</th>
@@ -2820,7 +2820,7 @@
         <td class="num">${qty ?? "-"}</td>
         <td class="num col-extra" data-stock-code="${esc((r.products[0] && r.products[0].code) || "")}">${stockCellText(r)}</td>
         <td class="duecell col-due${isOverdue(r) ? " overdue" : isSoon(r) ? " soon" : ""}">${(isOverdue(r) || isSoon(r)) ? "🔥 " : ""}${fmtDue(r)}</td>
-        <td class="col-recv col-extra">${esc(r.receiver.name) || "-"}</td>
+        <td class="col-recv">${esc(r.receiver.name) || "-"}</td>
         <td class="msg col-to col-extra" title="${esc(r.receiver.address)}">${esc(r.receiver.address) || "-"}</td>
         <td>${statusCellHtml(r)}</td>
         <td class="num col-track">${r.trackingNo ? `<span class="trackbadge" title="${esc(r.carrier || "")}">🚚 ${esc(r.trackingNo)}</span>` : "-"}</td>
