@@ -2006,8 +2006,11 @@
     }
   }
 
-  /** 수정·취소 시 변경자 이름 + 사유를 입력받는 작은 창. {actor, reason} 또는 취소 시 null 반환. */
-  function askChange(actionLabel) {
+  /** 수정·취소 시 변경자 이름 + 사유를 입력받는 작은 창.
+   *  {actor, reason} 또는 취소 시 null 반환. opts.bulkRemaining(2 이상)을 주면
+   *  "이 내용으로 남은 N건 모두 일괄 적용" 버튼이 추가로 뜨고, 누르면 {actor, reason, bulkAll:true}를 반환합니다. */
+  function askChange(actionLabel, opts) {
+    const bulkRemaining = (opts && opts.bulkRemaining) || 0;
     return new Promise((resolve) => {
       let ov = document.getElementById("changeModal");
       if (!ov) {
@@ -2023,6 +2026,7 @@
             <label style="font-size:12px;font-weight:600;color:var(--text-muted);">사유 <span style="color:var(--danger);">*</span></label>
             <input id="cmReason" type="text" placeholder="예: 수량 정정 / 수령지 변경" style="width:100%;margin:4px 0 4px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface-alt,#fff);color:var(--text);box-sizing:border-box;">
             <div id="cmErr" style="font-size:12px;color:var(--danger);min-height:16px;margin-bottom:8px;"></div>
+            <button id="cmBulk" type="button" class="btn ghost" style="display:none;width:100%;margin-bottom:8px;font-size:13px;color:var(--primary,#2563eb);"></button>
             <div style="display:flex;gap:8px;justify-content:flex-end;">
               <button id="cmCancel" type="button" class="btn ghost">닫기</button>
               <button id="cmOk" type="button" class="btn primary">확인</button>
@@ -2034,23 +2038,33 @@
       const actor = ov.querySelector("#cmActor");
       const reason = ov.querySelector("#cmReason");
       const err = ov.querySelector("#cmErr");
+      const bulkBtn = ov.querySelector("#cmBulk");
       title.textContent = actionLabel + " — 변경 기록 남기기";
       actor.value = ""; reason.value = ""; err.textContent = "";
+      if (bulkRemaining > 1) {
+        bulkBtn.textContent = `이 내용으로 남은 ${bulkRemaining}건 모두 일괄 적용`;
+        bulkBtn.style.display = "block";
+      } else {
+        bulkBtn.style.display = "none";
+      }
       ov.style.display = "flex";
       setTimeout(() => actor.focus(), 30);
 
       const cleanup = () => {
         okBtn.removeEventListener("click", onOk);
         cancelBtn.removeEventListener("click", onCancel);
+        bulkBtn.removeEventListener("click", onBulk);
         ov.removeEventListener("keydown", onKey);
       };
       const close = (result) => { ov.style.display = "none"; cleanup(); resolve(result); };
-      const onOk = () => {
+      const readValid = () => {
         const a = actor.value.trim(), r = reason.value.trim();
-        if (!a) { err.textContent = "변경자 이름을 입력해 주세요."; actor.focus(); return; }
-        if (!r) { err.textContent = "사유를 입력해 주세요."; reason.focus(); return; }
-        close({ actor: a, reason: r });
+        if (!a) { err.textContent = "변경자 이름을 입력해 주세요."; actor.focus(); return null; }
+        if (!r) { err.textContent = "사유를 입력해 주세요."; reason.focus(); return null; }
+        return { actor: a, reason: r };
       };
+      const onOk = () => { const v = readValid(); if (v) close(v); };
+      const onBulk = () => { const v = readValid(); if (v) close({ ...v, bulkAll: true }); };
       const onCancel = () => close(null);
       const onKey = (e) => {
         if (e.key === "Enter") { e.preventDefault(); onOk(); }
@@ -2060,6 +2074,7 @@
       const cancelBtn = ov.querySelector("#cmCancel");
       okBtn.addEventListener("click", onOk);
       cancelBtn.addEventListener("click", onCancel);
+      bulkBtn.addEventListener("click", onBulk);
       ov.addEventListener("keydown", onKey);
     });
   }
@@ -3931,16 +3946,21 @@
 
     // 실수 삭제 방지: 개별 취소와 똑같이 '변경자·사유'를 건마다 입력받습니다.
     // 다중이면 한 건씩 물어보고, 중간에 '닫기'를 누르면 아무것도 삭제하지 않고 전부 취소합니다.
+    // (여러 건일 때는 "이 내용으로 남은 N건 모두 일괄 적용" 버튼으로 한 번에 끝낼 수도 있어요.)
     const plans = [];
     for (let n = 0; n < ids.length; n++) {
       const id = ids[n];
       const r = DATA.find(x => x.requestId === id);
       const label = id + (r ? ` (${productSummary(r)})` : "") + (ids.length > 1 ? ` — ${n + 1}/${ids.length}건째` : "") + " 삭제";
-      const info = await askChange(label);
+      const info = await askChange(label, { bulkRemaining: ids.length - n });
       if (!info) {   // 사용자가 '닫기' → 지금까지 아무것도 삭제하지 않고 전체 중단
         showBanner("삭제를 취소했어요. 선택한 요청은 그대로 남아 있어요.", "error");
         setTimeout(() => showBanner(""), 3000);
         return;
+      }
+      if (info.bulkAll) {   // 남은 건 전체(현재 건 포함)에 동일하게 적용하고 입력 종료
+        for (let m = n; m < ids.length; m++) plans.push({ id: ids[m], actor: info.actor, reason: info.reason });
+        break;
       }
       plans.push({ id, actor: info.actor, reason: info.reason });
     }
