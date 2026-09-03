@@ -879,7 +879,6 @@
       <button class="navitem" data-view="cancelled">
         <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></svg>
         취소 내역
-        <span class="badge" id="navCancelBadge" style="background:var(--text-muted);"></span>
       </button>
       <button class="navitem" data-view="safety">
         <svg class="icon" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 4 3.5 7 8 9 4.5-2 8-5 8-9V6l-8-3Z"/></svg>
@@ -1700,7 +1699,8 @@
     const progress = base.filter(r => r.status === "in_progress").length;
     const pending = base.filter(r => r.status === "pending").length;
     const cancelled = DATA.filter(r => r.status === "cancelled").length;
-    const safety = DATA.filter(r => r.requestType === "안전재고" && r.status !== "cancelled").length;
+    // 안전재고 배지는 '확인이 필요한' 건만 셉니다 — 완료된 건은 더 볼 필요가 없어서 제외
+    const safety = DATA.filter(r => r.requestType === "안전재고" && r.status !== "cancelled" && r.status !== "done").length;
     const overdue = base.filter(isOverdue).length;
     const missing = base.filter(r => r.status !== "done" && hasMissingInfo(r)).length;
     return { total, done, progress, pending, cancelled, safety, overdue, missing };
@@ -1730,11 +1730,6 @@
     document.getElementById("bellCount").textContent = c.overdue;
     document.getElementById("navAllBadge").textContent = c.overdue > 0 ? c.overdue : "";
     document.getElementById("navAllBadge").style.display = c.overdue > 0 ? "" : "none";
-    const cancelBadge = document.getElementById("navCancelBadge");
-    if (cancelBadge) {
-      cancelBadge.textContent = c.cancelled > 0 ? c.cancelled : "";
-      cancelBadge.style.display = c.cancelled > 0 ? "" : "none";
-    }
     const safetyBadge = document.getElementById("navSafetyBadge");
     if (safetyBadge) {
       safetyBadge.textContent = c.safety > 0 ? c.safety : "";
