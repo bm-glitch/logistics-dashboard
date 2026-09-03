@@ -480,6 +480,10 @@
   .reqmodal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.42); display:none; align-items:flex-start; justify-content:center; z-index:60; padding:24px 14px; overflow:auto; }
   .reqmodal-panel { background:var(--surface); border:1px solid var(--border); border-radius:14px; max-width:580px; width:100%; padding:16px 18px 20px; box-shadow:0 16px 50px rgba(0,0,0,.28); margin:auto; }
   .reqmodal-head { display:flex; justify-content:flex-end; gap:6px; margin-bottom:4px; }
+  /* .detailgrid의 2단 레이아웃은 화면(뷰포트) 너비 기준 미디어쿼리라, 이 팝업(최대 580px)처럼
+     창은 넓어도 팝업 자체가 좁을 땐 오른쪽 칸(최소 460px)에 밀려 왼쪽 칸이 짜부라집니다.
+     이 팝업 안에서는 폭이 항상 좁으니 처음부터 1단으로 고정합니다. */
+  .reqmodal-panel .detailgrid { grid-template-columns: 1fr; }
 
   table.reqtable td.num { text-align: right; }
   table.reqtable th.num { text-align: right; }
