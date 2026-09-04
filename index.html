@@ -355,6 +355,13 @@
     border: 1px solid var(--border); background: var(--surface); color: var(--text);
     border-radius: 8px; padding: 4px 10px; font-size: 12.5px; cursor: pointer;
   }
+  .searchpanel { margin-bottom: 18px; }
+  .searchpanel-body { display: flex; align-items: center; gap: 14px 18px; flex-wrap: wrap; padding-bottom: 4px; }
+  .sp-field { display: flex; align-items: center; gap: 6px; }
+  .sp-field label { font-size: 12px; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
+  .sp-tilde { color: var(--text-muted); }
+  input.datefilter { cursor: text; }
+  @media (max-width: 700px) { .searchpanel-body { flex-direction: column; align-items: stretch; } .sp-field { flex-wrap: wrap; } }
 
   .tablescroll { overflow-x: auto; }
   table.reqtable { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 1520px; }
@@ -1238,6 +1245,32 @@
       <datalist id="assigneeOptions"></datalist>
       <datalist id="receiverOptions"></datalist>
 
+      <!-- 상세 검색 — 기간·요청자로 좁혀서 찾아요. 전체 요청·안전재고 화면에 공통으로 적용돼요. -->
+      <div class="panel searchpanel" id="searchPanel">
+        <div class="panel-head">
+          <span class="title">🔎 상세 검색</span>
+        </div>
+        <div class="searchpanel-body">
+          <div class="sp-field">
+            <label>기간</label>
+            <select class="selectfilter" id="spDateField">
+              <option value="desiredDate">출고 희망일</option>
+              <option value="requestDate">요청일</option>
+              <option value="completedAt">완료일</option>
+            </select>
+            <input type="date" class="selectfilter datefilter" id="spDateFrom">
+            <span class="sp-tilde">~</span>
+            <input type="date" class="selectfilter datefilter" id="spDateTo">
+          </div>
+          <div class="sp-field">
+            <label>요청자</label>
+            <select class="selectfilter" id="spRequester"><option value="">전체</option></select>
+          </div>
+          <button type="button" class="btn primary small" id="spApply">검색</button>
+          <button type="button" class="btn ghost small" id="spClear">초기화</button>
+        </div>
+      </div>
+
       <div class="tablecard">
         <div class="tablecard-head">
           <span class="title" id="tableTitle">최근 요청</span>
@@ -1610,6 +1643,11 @@
   let activeStatus = "open";
   let activeTeam = null;
   let activeAssignee = null;
+  // 상세 검색(기간·요청자) — 전체 요청·안전재고 화면에 공통으로 적용됩니다.
+  let activeRequester = null;
+  let dateRangeField = "desiredDate";
+  let dateRangeFrom = "";
+  let dateRangeTo = "";
   let activeChannel = null;
   let activeView = "dashboard";
   let searchTerm = "";
@@ -1806,6 +1844,16 @@
     el.innerHTML = '<option value="">담당자 전체</option>' + assignees.map(a => `<option value="${esc(a)}">${esc(a)}</option>`).join("");
     el.value = assignees.includes(activeAssignee) ? activeAssignee : "";
     if (el.value === "") activeAssignee = null;
+  }
+
+  /** 상세 검색의 '요청자' 드롭다운 — 실제 들어온 요청자 이름만 골라 보여줍니다. */
+  function renderRequesterFilter() {
+    const requesters = [...new Set(DATA.map(r => r.requester).filter(Boolean))].sort((a, b) => a.localeCompare(b, "ko"));
+    const el = document.getElementById("spRequester");
+    if (!el) return;
+    el.innerHTML = '<option value="">전체</option>' + requesters.map(a => `<option value="${esc(a)}">${esc(a)}</option>`).join("");
+    el.value = requesters.includes(activeRequester) ? activeRequester : "";
+    if (el.value === "") activeRequester = null;
   }
 
   function renderChannelFilter() {
@@ -2521,6 +2569,16 @@
     if (activeTeam) rows = rows.filter(r => r.team === activeTeam);
     if (activeAssignee) rows = rows.filter(r => r.assignee === activeAssignee);
     if (activeChannel) rows = rows.filter(r => r.channels.includes(activeChannel));
+    if (activeRequester) rows = rows.filter(r => r.requester === activeRequester);
+    if (dateRangeFrom || dateRangeTo) {
+      rows = rows.filter(r => {
+        const v = String(r[dateRangeField] || "").slice(0, 10);
+        if (!v) return false;
+        if (dateRangeFrom && v < dateRangeFrom) return false;
+        if (dateRangeTo && v > dateRangeTo) return false;
+        return true;
+      });
+    }
     if (todayOnly) rows = rows.filter(r => r.status !== "done" && r.desiredDate === TODAY);
     if (searchTerm) {
       const t = searchTerm.toLowerCase();
@@ -2815,7 +2873,7 @@
     if (viewMode === "kanban") { renderKanban(allRows); return; }
 
     // ④ 페이지 나누기 — 한 페이지 30건(기본). 필터가 바뀌면 자동으로 1페이지로 돌아갑니다.
-    const sig = [activeView, activeStatus, activeTeam, activeAssignee, activeChannel, todayOnly, searchTerm, PAGE_SIZE].join("§");
+    const sig = [activeView, activeStatus, activeTeam, activeAssignee, activeChannel, activeRequester, dateRangeField, dateRangeFrom, dateRangeTo, todayOnly, searchTerm, PAGE_SIZE].join("§");
     if (sig !== _pageSig) { _pageSig = sig; PAGE = 1; }
     const totalPages = Math.max(1, Math.ceil(allRows.length / PAGE_SIZE));
     if (PAGE > totalPages) PAGE = totalPages;
@@ -2924,6 +2982,7 @@
     renderToday();
     renderTeamChips();
     renderAssigneeFilter();
+    renderRequesterFilter();
     renderChannelFilter();
     renderDatalists();
     renderTable();
@@ -2961,6 +3020,8 @@
     document.querySelector(".stats").style.display = (isForm || isLogistics || listOnly) ? "none" : "";
     document.querySelector(".panels").style.display = (isForm || isLogistics || listOnly) ? "none" : "";
     document.querySelector(".tablecard").style.display = (isForm || isLogistics) ? "none" : "";
+    const searchPanelEl = document.getElementById("searchPanel");
+    if (searchPanelEl) searchPanelEl.style.display = (isForm || isLogistics) ? "none" : "";
     document.querySelector(".howto").style.display = (isForm || isLogistics || listOnly) ? "none" : "";
     document.getElementById("formSection").style.display = isForm ? "" : "none";
     document.getElementById("logisticsSection").style.display = isLogistics ? "" : "none";
@@ -4048,6 +4109,25 @@
     renderTable();
   });
   document.getElementById("clearTodayFilter").addEventListener("click", () => setView(activeView));
+
+  // 상세 검색 — 요청자·기간. 전체 요청·안전재고 화면에 공통으로 적용됩니다.
+  document.getElementById("spApply").addEventListener("click", () => {
+    activeRequester = document.getElementById("spRequester").value || null;
+    dateRangeField = document.getElementById("spDateField").value;
+    dateRangeFrom = document.getElementById("spDateFrom").value;
+    dateRangeTo = document.getElementById("spDateTo").value;
+    clearTodayFilter();
+    renderTable();
+  });
+  document.getElementById("spClear").addEventListener("click", () => {
+    document.getElementById("spRequester").value = "";
+    document.getElementById("spDateFrom").value = "";
+    document.getElementById("spDateTo").value = "";
+    activeRequester = null;
+    dateRangeFrom = ""; dateRangeTo = "";
+    clearTodayFilter();
+    renderTable();
+  });
   document.getElementById("bellBtn").addEventListener("click", () => {
     activeStatus = "";
     activeTeam = null;
@@ -4070,6 +4150,8 @@
     activeTeam = null;
     activeAssignee = null;
     activeChannel = null;
+    activeRequester = null;
+    dateRangeFrom = ""; dateRangeTo = "";
     searchTerm = "";
     document.querySelectorAll(".navitem").forEach(b => b.classList.remove("active"));
     document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
@@ -4077,9 +4159,13 @@
     document.getElementById("assigneeFilter").value = "";
     document.getElementById("channelFilter").value = "";
     document.getElementById("searchInput").value = "";
+    const spReq = document.getElementById("spRequester"); if (spReq) spReq.value = "";
+    const spFrom = document.getElementById("spDateFrom"); if (spFrom) spFrom.value = "";
+    const spTo = document.getElementById("spDateTo"); if (spTo) spTo.value = "";
     document.getElementById("formSection").style.display = "none";
     document.getElementById("logisticsSection").style.display = "none";
     document.querySelector(".tablecard").style.display = "";
+    document.getElementById("searchPanel").style.display = "";
     renderTeamChips();
     setFocusMode(true);
     document.getElementById("pageTitle").textContent = "오늘의 업무";
