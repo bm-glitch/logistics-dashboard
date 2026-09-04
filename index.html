@@ -98,6 +98,7 @@
     gap: 9px;
     padding: 8px 10px 20px;
     color: var(--sidebar-text-active);
+    cursor: pointer;
   }
   .brand .mark {
     width: 30px; height: 30px;
@@ -862,7 +863,7 @@
 
 <div class="app">
   <aside class="sidebar">
-    <div class="brand">
+    <div class="brand" id="brandHome" title="대시보드로 이동">
       <div class="mark"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h5"/></svg></div>
       <div class="name">업무 요청 대장부</div>
     </div>
@@ -3846,6 +3847,8 @@
 
   /* ---------- 이벤트 ---------- */
   document.querySelectorAll(".navitem").forEach(b => b.addEventListener("click", () => setView(b.dataset.view)));
+  // 왼쪽 위 '업무 요청 대장부' 로고 — 눌러서 대시보드(메인 화면)로 바로 이동
+  document.getElementById("brandHome").addEventListener("click", () => setView("dashboard"));
   document.getElementById("newRequestBtn").addEventListener("click", () => setView("form"));
 
   /** 요청 목록을 우리 양식 엑셀로 내려받습니다. (전체/선택 공용) */
@@ -4336,12 +4339,19 @@
     let addr = fromTable.addr || meta.addr || "";
     if (zip && addr && !addr.startsWith("(")) addr = "(" + zip + ") " + addr;
 
+    // 수령자·주소 칸이 따로 없고 '매장' 칸만 있는 발주서(예: 이지어드민 수주내역일괄출고 양식)는
+    // 다중등록과 똑같이 우리 매장 주소록(OFFBEAUTY_STORES)에서 주소·연락처를 채웁니다.
+    // 이게 없으면 "매장"만 적힌 파일은 전부 "받는 사람 정보를 못 찾았다"며 거부돼 버립니다.
+    const storeRaw = fromTable.store || meta.store || "";
+    const storeHit = storeRaw ? matchStore(storeRaw) : null;
+    if (!addr && storeHit) addr = storeHit.addr || "";
+
     const receiver = {
-      name:    fromTable.name || meta.name || meta.store || "",
-      phone:   pm ? (pm[1] + "-" + pm[2] + "-" + pm[3]) : String(phoneRaw).trim(),
+      name:    fromTable.name || meta.name || (storeHit && storeHit.name) || storeRaw || "",
+      phone:   pm ? (pm[1] + "-" + pm[2] + "-" + pm[3]) : (String(phoneRaw).trim() || (storeHit && storeHit.phone) || ""),
       address: addr,
       message: fromTable.msg || meta.msg || "",
-      store:   meta.store || fromTable.store || "",
+      store:   storeRaw,
     };
 
     // 이름·주소를 둘 다 못 찾았으면 배송 양식이 아니라 상품 목록 같은 참고용 파일입니다.
