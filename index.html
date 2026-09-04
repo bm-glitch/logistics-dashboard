@@ -1252,6 +1252,10 @@
         </div>
         <div class="searchpanel-body">
           <div class="sp-field">
+            <label>검색어</label>
+            <input type="text" class="selectfilter" id="spKeyword" placeholder="요청번호·수령자·상품명 등 직접 입력" style="width:220px;">
+          </div>
+          <div class="sp-field">
             <label>기간</label>
             <select class="selectfilter" id="spDateField">
               <option value="desiredDate">출고 희망일</option>
@@ -4110,19 +4114,29 @@
   });
   document.getElementById("clearTodayFilter").addEventListener("click", () => setView(activeView));
 
-  // 상세 검색 — 요청자·기간. 전체 요청·안전재고 화면에 공통으로 적용됩니다.
-  document.getElementById("spApply").addEventListener("click", () => {
+  // 상세 검색 — 검색어(수기 입력)·요청자·기간. 전체 요청·안전재고 화면에 공통으로 적용됩니다.
+  function applySearchPanel() {
+    searchTerm = document.getElementById("spKeyword").value.trim();
+    document.getElementById("searchInput").value = searchTerm;   // 위쪽 검색창과 값을 맞춰서 헷갈리지 않게
     activeRequester = document.getElementById("spRequester").value || null;
     dateRangeField = document.getElementById("spDateField").value;
     dateRangeFrom = document.getElementById("spDateFrom").value;
     dateRangeTo = document.getElementById("spDateTo").value;
+    if (activeView === "form") setView("all");
     clearTodayFilter();
     renderTable();
+  }
+  document.getElementById("spApply").addEventListener("click", applySearchPanel);
+  document.getElementById("spKeyword").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); applySearchPanel(); }
   });
   document.getElementById("spClear").addEventListener("click", () => {
+    document.getElementById("spKeyword").value = "";
+    document.getElementById("searchInput").value = "";
     document.getElementById("spRequester").value = "";
     document.getElementById("spDateFrom").value = "";
     document.getElementById("spDateTo").value = "";
+    searchTerm = "";
     activeRequester = null;
     dateRangeFrom = ""; dateRangeTo = "";
     clearTodayFilter();
