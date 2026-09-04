@@ -2552,6 +2552,10 @@
 
   function getFilteredRows() {
     let rows = DATA.slice();
+    // 검색어·요청자·기간으로 찾는 중이면, "진행 필요/대기/진행중" 탭에 걸려서
+    // 완료건이 안 보이는 일이 없도록 상태 탭 필터는 건너뜁니다 — 찾는 게 최우선.
+    // (취소 내역/안전재고/완료 내역처럼 화면 자체가 다른 경우는 그대로 유지합니다)
+    const searching = !!(searchTerm || activeRequester || dateRangeFrom || dateRangeTo);
     if (activeView === "cancelled") {
       // 취소 내역 화면 — 취소된 건만 모아서 보여줍니다. (상태 탭 필터는 적용하지 않음)
       rows = rows.filter(r => r.status === "cancelled");
@@ -2560,15 +2564,20 @@
       // 완료건까지 대기·진행중이랑 계속 섞여서 지저분하다는 피드백으로, 다른 화면과 똑같이
       // 상태 탭(진행 필요/대기/진행중/완료/전체)으로 나눠서 볼 수 있게 했습니다.
       rows = rows.filter(r => r.requestType === "안전재고" && r.status !== "cancelled");
-      if (activeStatus === "open") rows = rows.filter(r => r.status === "pending" || r.status === "in_progress");
-      else if (activeStatus) rows = rows.filter(r => r.status === activeStatus);
+      if (!searching) {
+        if (activeStatus === "open") rows = rows.filter(r => r.status === "pending" || r.status === "in_progress");
+        else if (activeStatus) rows = rows.filter(r => r.status === activeStatus);
+      }
     } else {
       // 그 외 모든 화면(대시보드·전체·완료)에서는 취소 건과 안전재고 건을 숨깁니다.
       rows = rows.filter(r => r.status !== "cancelled" && r.requestType !== "안전재고");
-      if (activeView === "done") rows = rows.filter(r => r.status === "done");
-      // "진행 필요" 탭 = 대기 + 진행중 (완료·취소 제외) — 실제로 손이 가야 하는 건만
-      if (activeStatus === "open") rows = rows.filter(r => r.status === "pending" || r.status === "in_progress");
-      else if (activeStatus) rows = rows.filter(r => r.status === activeStatus);
+      if (activeView === "done") {
+        rows = rows.filter(r => r.status === "done");
+      } else if (!searching) {
+        // "진행 필요" 탭 = 대기 + 진행중 (완료·취소 제외) — 실제로 손이 가야 하는 건만
+        if (activeStatus === "open") rows = rows.filter(r => r.status === "pending" || r.status === "in_progress");
+        else if (activeStatus) rows = rows.filter(r => r.status === activeStatus);
+      }
     }
     if (activeTeam) rows = rows.filter(r => r.team === activeTeam);
     if (activeAssignee) rows = rows.filter(r => r.assignee === activeAssignee);
