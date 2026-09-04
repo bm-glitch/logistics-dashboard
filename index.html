@@ -5542,8 +5542,11 @@
   });
 
   // Slack 링크 버튼(#form)으로 들어온 경우, 요청서 작성 화면으로 바로 이동합니다.
+  // 처리한 뒤엔 주소의 #form을 지워서, 나중에 새로고침(F5)해도 계속 요청서 작성으로
+  // 튕기지 않고 원래 화면(대시보드)으로 뜨게 합니다.
   if (window.location.hash === "#form") {
     setView("form");
+    history.replaceState(null, "", window.location.pathname + window.location.search);
   }
 
   // 안전장치: 화면이 다시 그려지는 타이밍과 상관없이, 3초마다 강제로 배지를 다시 칠합니다.
