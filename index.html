@@ -564,6 +564,64 @@
     .stockpanel { position: static; max-height: none; }
   }
   .logisticswrap { display: block; }
+
+  /* ===== 엑셀 작업실 ===== */
+  .exceltoolwrap { display: flex; flex-direction: column; gap: 10px; height: calc(100vh - 140px); }
+  .xt-toolbar {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 10px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow);
+  }
+  .xt-btn {
+    appearance: none; cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 600;
+    padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    white-space: nowrap; transition: .12s;
+  }
+  .xt-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .xt-btn:disabled { opacity: .4; cursor: not-allowed; }
+  .xt-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .xt-btn.primary:hover:not(:disabled) { filter: brightness(1.07); color: #fff; }
+  .xt-sep { width: 1px; align-self: stretch; background: var(--border); margin: 0 2px; }
+  .xt-spacer { flex: 1; }
+  .xt-headerlabel { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+  .xt-headerlabel input { width: 52px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--text); font-size: 12.5px; }
+  .xt-filetabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .xt-filetab {
+    display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 12px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--surface); font-size: 12.5px; color: var(--text-muted); cursor: pointer;
+  }
+  .xt-filetab.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); font-weight: 700; }
+  .xt-filetab .x { border: none; background: none; cursor: pointer; color: inherit; opacity: .6; font-size: 13px; line-height: 1; padding: 2px; }
+  .xt-filetab .x:hover { opacity: 1; }
+  .xt-status { font-size: 12.5px; color: var(--text-muted); min-height: 18px; padding: 0 2px; }
+  .xt-status.ok { color: var(--success, #1a8754); font-weight: 600; }
+  .xt-status.warn { color: var(--danger); font-weight: 600; }
+  .xt-gridwrap {
+    flex: 1; min-height: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: var(--shadow); overflow: hidden; display: flex; flex-direction: column;
+  }
+  .xt-empty { margin: auto; color: var(--text-muted); font-size: 13.5px; text-align: center; max-width: 420px; padding: 20px; }
+  .xt-tablescroll { flex: 1; overflow: auto; }
+  table.xt-table { border-collapse: collapse; font-size: 12.5px; }
+  table.xt-table th, table.xt-table td {
+    border: 1px solid var(--border); padding: 0; white-space: nowrap; min-width: 90px;
+  }
+  table.xt-table th {
+    position: sticky; top: 0; background: var(--surface-alt, #f3f4f6); color: var(--text-muted);
+    font-weight: 700; padding: 6px 8px; cursor: pointer; z-index: 2; user-select: none;
+  }
+  table.xt-table th.xt-colsel { color: var(--accent); background: var(--accent-soft); }
+  table.xt-table th.xt-corner { position: sticky; left: 0; top: 0; z-index: 3; cursor: default; background: var(--surface-alt, #f3f4f6); }
+  table.xt-table td.xt-rownum {
+    position: sticky; left: 0; background: var(--surface-alt, #f3f4f6); color: var(--text-muted);
+    font-weight: 600; text-align: center; padding: 6px 8px; z-index: 1; min-width: 46px;
+  }
+  table.xt-table td.xt-rownum.xt-rowsel { color: var(--accent); }
+  table.xt-table td.xt-rownum input { vertical-align: middle; margin-right: 4px; }
+  table.xt-table td.xt-cell { padding: 6px 8px; color: var(--text); outline: none; max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
+  table.xt-table td.xt-cell:focus { background: var(--accent-soft); overflow: visible; }
+  table.xt-table tr.xt-headerrow td.xt-cell { background: var(--surface-alt, #f9fafb); font-weight: 700; }
+  table.xt-table tr.xt-hidden { display: none; }
+  table.xt-table td.xt-cell.xt-nomatch { background: #fdecea; }
   .fcard {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 12px; box-shadow: var(--shadow); overflow: hidden;
@@ -906,6 +964,11 @@
       <button class="navitem" data-view="logistics">
         <svg class="icon" viewBox="0 0 24 24"><path d="M3 7l2-3h14l2 3"/><path d="M3 7h18v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7Z"/><path d="M8 11h8"/></svg>
         물류 대장
+      </button>
+      <div class="navsep"></div>
+      <button class="navitem" data-view="exceltool">
+        <svg class="icon" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M10 4v16"/></svg>
+        엑셀 작업실
       </button>
     </nav>
     <div class="sidebar-foot">
@@ -1374,6 +1437,37 @@
           </a>
         </div>
       </div>
+
+      <!-- ============ 엑셀 작업실 ============ -->
+      <div class="exceltoolwrap" id="excelToolSection" style="display:none;">
+        <div class="xt-toolbar" id="xtToolbar">
+          <button type="button" class="xt-btn" id="xtUploadBtn">📁 파일 업로드</button>
+          <input type="file" id="xtFileInput" accept=".xlsx,.xls,.csv" multiple style="display:none;">
+          <span class="xt-sep"></span>
+          <button type="button" class="xt-btn" id="xtVlookupBtn" disabled>🔗 VLOOKUP 매칭</button>
+          <button type="button" class="xt-btn" id="xtStatBtn" disabled>Σ 합계·평균·개수</button>
+          <button type="button" class="xt-btn" id="xtDedupeBtn" disabled>🧹 중복 제거</button>
+          <button type="button" class="xt-btn" id="xtSortBtn" disabled>↕ 정렬</button>
+          <button type="button" class="xt-btn" id="xtFilterBtn" disabled>🔍 필터</button>
+          <button type="button" class="xt-btn" id="xtReplaceBtn" disabled>🔄 찾기·바꾸기</button>
+          <button type="button" class="xt-btn" id="xtCalcColBtn" disabled>➕ 계산열 추가</button>
+          <span class="xt-sep"></span>
+          <button type="button" class="xt-btn" id="xtAddRowBtn" disabled>⬇ 행 추가</button>
+          <button type="button" class="xt-btn" id="xtDelRowBtn" disabled>🗑 선택 행 삭제</button>
+          <button type="button" class="xt-btn" id="xtUndoBtn" disabled>↩ 실행 취소</button>
+          <span class="xt-spacer"></span>
+          <label class="xt-headerlabel">헤더 행 <input type="number" id="xtHeaderRowInput" min="1" value="1"></label>
+          <button type="button" class="xt-btn primary" id="xtDownloadBtn" disabled>⬇️ 다운로드</button>
+        </div>
+        <div class="xt-filetabs" id="xtFileTabs"></div>
+        <div class="xt-status" id="xtStatus"></div>
+        <div class="xt-gridwrap" id="xtGridWrap">
+          <div class="xt-empty" id="xtEmpty">엑셀 파일(.xlsx/.xls/.csv)을 올리면 여기 표시돼요. 여러 파일을 올려서 서로 매칭(VLOOKUP)할 수도 있어요.</div>
+          <div class="xt-tablescroll" id="xtTableScroll" style="display:none;">
+            <table class="xt-table" id="xtTable"></table>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -1729,7 +1823,7 @@
   // 안전재고·취소 내역처럼 지표 카드를 아예 안 쓰는 화면에서는, 다른 이유로 focus mode가
   // 꺼지더라도(예: 상태 탭을 눌러서 clearTodayFilter가 불릴 때) 카드가 다시 튀어나오면 안 됩니다.
   function chromeHiddenView() {
-    return activeView === "form" || activeView === "logistics" || activeView === "cancelled" || activeView === "safety";
+    return activeView === "form" || activeView === "logistics" || activeView === "cancelled" || activeView === "safety" || activeView === "exceltool";
   }
   function setFocusMode(on) {
     const hide = on || chromeHiddenView();
@@ -3015,6 +3109,7 @@
       safety: ["안전재고 요청", "재고 확보만을 위한 요청이에요. 출고요청 목록과는 따로 관리돼요"],
       form: ["업무 요청서 작성", "출고 요청 내용을 입력하면 대장부에 새 항목으로 등록할 수 있어요"],
       logistics: ["물류 대장", "물류팀 출고요청 전용 화면 — 재고 확인·D-day·보류까지 관리해요"],
+      exceltool: ["엑셀 작업실", "엑셀 파일을 올려서 매칭·계산·정리 작업을 하고, 완료되면 그대로 내려받아요"],
     };
     document.getElementById("pageTitle").textContent = titles[view][0];
     document.getElementById("pageSub").textContent = titles[view][1];
@@ -3022,6 +3117,7 @@
 
     const isForm = view === "form";
     const isLogistics = view === "logistics";
+    const isExcelTool = view === "exceltool";
     const isCancelled = view === "cancelled";
     const isSafety = view === "safety";
     const listOnly = isCancelled || isSafety; // 지표·차트·안내문 없이 목록만
@@ -3030,14 +3126,15 @@
     //    (대시보드 화면에서는 지금처럼 전부 보여요)
     document.body.classList.toggle("lean-banner", view !== "dashboard");
     document.body.classList.toggle("hide-cumulative", view === "all");
-    document.querySelector(".stats").style.display = (isForm || isLogistics || listOnly) ? "none" : "";
-    document.querySelector(".panels").style.display = (isForm || isLogistics || listOnly) ? "none" : "";
-    document.querySelector(".tablecard").style.display = (isForm || isLogistics) ? "none" : "";
+    document.querySelector(".stats").style.display = (isForm || isLogistics || isExcelTool || listOnly) ? "none" : "";
+    document.querySelector(".panels").style.display = (isForm || isLogistics || isExcelTool || listOnly) ? "none" : "";
+    document.querySelector(".tablecard").style.display = (isForm || isLogistics || isExcelTool) ? "none" : "";
     const searchPanelEl = document.getElementById("searchPanel");
-    if (searchPanelEl) searchPanelEl.style.display = (isForm || isLogistics) ? "none" : "";
-    document.querySelector(".howto").style.display = (isForm || isLogistics || listOnly) ? "none" : "";
+    if (searchPanelEl) searchPanelEl.style.display = (isForm || isLogistics || isExcelTool) ? "none" : "";
+    document.querySelector(".howto").style.display = (isForm || isLogistics || isExcelTool || listOnly) ? "none" : "";
     document.getElementById("formSection").style.display = isForm ? "" : "none";
     document.getElementById("logisticsSection").style.display = isLogistics ? "" : "none";
+    document.getElementById("excelToolSection").style.display = isExcelTool ? "" : "none";
     // 상태 탭(대기/진행중/완료)은 취소 목록에서만 의미가 없으므로 숨깁니다.
     // 안전재고는 완료건을 따로 보고 싶다는 피드백으로 다른 화면처럼 탭을 그대로 씁니다.
     const statusTabsEl = document.getElementById("statusTabs");
@@ -5539,6 +5636,530 @@
   document.getElementById("fOrderRefFiles").addEventListener("change", (e) => {
     addFilesToStore("fOrderRefFiles", e.target.files);
     refreshRefFiles("fOrderRefFiles", "fOrderRefFilesName");
+  });
+
+  /* =========================================================================
+   * 엑셀 작업실 — 발주서·송장 파일 등을 올려서 VLOOKUP 매칭·정렬·중복제거·
+   * 계산열 추가 같은 실무 작업을 하고 그대로 내려받습니다. (2026-09-07)
+   * 데이터는 시트를 그대로(A,B,C… 열 문자·1,2,3… 행 번호) 보여줘서, 파일마다
+   * 제목줄 위치가 달라도 사람이 직접 보고 골라 쓸 수 있게 했습니다(자동 추정 안 함).
+   * ======================================================================= */
+  let XT_FILES = [];   // { id, name, aoa, headerRow, colSel:Set, rowSel:Set, filter:null|{col,text}, history:[aoa...], noMatchCells:Set|null }
+  let XT_ACTIVE = -1;
+
+  function xtColLetter(i) {
+    let s = "", n = i + 1;
+    while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); }
+    return s;
+  }
+  function xtLetterToIdx(s) {
+    s = String(s || "").trim().toUpperCase();
+    if (!/^[A-Z]+$/.test(s)) return null;
+    let n = 0;
+    for (const ch of s) n = n * 26 + (ch.charCodeAt(0) - 64);
+    return n - 1;
+  }
+  function xtNormKey(v) { return String(v == null ? "" : v).trim().replace(/\s+/g, "").toLowerCase(); }
+  function xtActiveFile() { return XT_ACTIVE >= 0 ? XT_FILES[XT_ACTIVE] : null; }
+  function xtColCount(f) { return f.aoa.reduce((m, row) => Math.max(m, row ? row.length : 0), 1); }
+  function xtColLabel(f, colIdx) {
+    const letter = xtColLetter(colIdx);
+    const hv = f.aoa[f.headerRow - 1] ? String(f.aoa[f.headerRow - 1][colIdx] ?? "").trim() : "";
+    return hv ? `${letter} (${hv.length > 16 ? hv.slice(0, 16) + "…" : hv})` : letter;
+  }
+  function xtColOptsHtml(f) {
+    const n = xtColCount(f); let s = "";
+    for (let c = 0; c < n; c++) s += `<option value="${c}">${esc(xtColLabel(f, c))}</option>`;
+    return s;
+  }
+
+  async function xtReadFile(file) {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(new Uint8Array(buf), { type: "array" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const aoa = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "", blankrows: true, range: 0 })
+      .map(row => (row || []).map(v => v == null ? "" : v));
+    // 원본 파일 서식이 실제 데이터보다 훨씬 아래 행까지 걸려 있는 경우가 많아서,
+    // 맨 끝의 완전히 빈 행들만 잘라냅니다(중간 빈 줄은 원본 그대로 둡니다).
+    while (aoa.length > 1 && !aoa[aoa.length - 1].some(v => String(v || "").trim())) aoa.pop();
+    return { id: "xt" + Date.now() + Math.random().toString(36).slice(2, 6), name: file.name, aoa,
+      headerRow: 1, colSel: new Set(), rowSel: new Set(), filter: null, history: [], noMatchCells: null };
+  }
+  async function xtAddFiles(fileList) {
+    for (const f of Array.from(fileList)) {
+      try { XT_FILES.push(await xtReadFile(f)); XT_ACTIVE = XT_FILES.length - 1; }
+      catch (e) { alert(f.name + ": 파일을 읽지 못했어요 (" + (e.message || "") + ")"); }
+    }
+    xtRenderAll();
+  }
+  function xtPushHistory() {
+    const f = xtActiveFile(); if (!f) return;
+    f.history.push(JSON.parse(JSON.stringify(f.aoa)));
+    if (f.history.length > 20) f.history.shift();
+    f.noMatchCells = null;   // 행이 움직이면 예전 '매칭 안 됨' 표시는 더 이상 맞지 않으니 지웁니다
+  }
+  function xtUndo() {
+    const f = xtActiveFile(); if (!f || !f.history.length) return;
+    f.aoa = f.history.pop();
+    f.noMatchCells = null;
+    xtRenderAll();
+    xtSetStatus("실행을 취소했어요.");
+  }
+  function xtSetStatus(msg, cls) {
+    const el = document.getElementById("xtStatus");
+    el.textContent = msg || "";
+    el.className = "xt-status" + (cls ? " " + cls : "");
+  }
+
+  function xtRenderAll() { xtRenderFileTabs(); xtRenderToolbarState(); xtRenderGrid(); }
+
+  function xtRenderFileTabs() {
+    const el = document.getElementById("xtFileTabs");
+    el.innerHTML = XT_FILES.map((f, i) => `
+      <span class="xt-filetab${i === XT_ACTIVE ? " active" : ""}" data-i="${i}">
+        📄 ${esc(f.name)}
+        <button type="button" class="x" data-close="${i}" title="닫기">✕</button>
+      </span>`).join("");
+    el.querySelectorAll(".xt-filetab").forEach(t => t.addEventListener("click", (e) => {
+      if (e.target.closest("[data-close]")) return;
+      XT_ACTIVE = Number(t.dataset.i);
+      xtRenderAll();
+    }));
+    el.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const i = Number(b.dataset.close);
+      XT_FILES.splice(i, 1);
+      if (XT_ACTIVE >= XT_FILES.length) XT_ACTIVE = XT_FILES.length - 1;
+      xtRenderAll();
+    }));
+  }
+  function xtRenderToolbarState() {
+    const has = XT_ACTIVE >= 0;
+    const f = xtActiveFile();
+    ["xtVlookupBtn", "xtStatBtn", "xtDedupeBtn", "xtSortBtn", "xtFilterBtn", "xtReplaceBtn", "xtCalcColBtn", "xtAddRowBtn", "xtDelRowBtn", "xtDownloadBtn"]
+      .forEach(id => { const b = document.getElementById(id); if (b) b.disabled = !has; });
+    document.getElementById("xtUndoBtn").disabled = !(f && f.history.length);
+    document.getElementById("xtHeaderRowInput").disabled = !has;
+    document.getElementById("xtHeaderRowInput").value = f ? f.headerRow : 1;
+    const fbtn = document.getElementById("xtFilterBtn");
+    if (fbtn) fbtn.textContent = (f && f.filter) ? "🔍 필터 해제" : "🔍 필터";
+  }
+  function xtRowMatchesFilter(f, row) {
+    if (!f.filter) return true;
+    return String((row && row[f.filter.col]) ?? "").toLowerCase().includes(f.filter.text.toLowerCase());
+  }
+  function xtRenderGrid() {
+    // 실행 취소 가능 여부 등 툴바 버튼 상태는 그리드가 바뀔 때마다 항상 같이 맞춰 줍니다.
+    // (VLOOKUP 등 개별 작업에서 일일이 챙기지 않아도 되도록 여기서 한 번에 처리)
+    xtRenderToolbarState();
+    const f = xtActiveFile();
+    const empty = document.getElementById("xtEmpty");
+    const scroll = document.getElementById("xtTableScroll");
+    if (!f) { empty.style.display = ""; scroll.style.display = "none"; return; }
+    empty.style.display = "none"; scroll.style.display = "";
+
+    const nCols = xtColCount(f);
+    let thead = `<tr><th class="xt-corner"><input type="checkbox" id="xtSelAllRows" title="전체 행 선택"></th>`;
+    for (let c = 0; c < nCols; c++) {
+      thead += `<th data-col="${c}" class="${f.colSel.has(c) ? "xt-colsel" : ""}" title="눌러서 이 열 선택/해제">${esc(xtColLetter(c))}</th>`;
+    }
+    thead += `</tr>`;
+
+    let tbody = "";
+    f.aoa.forEach((row, r) => {
+      if (!xtRowMatchesFilter(f, row || [])) return;   // 필터에 안 걸리면 아예 안 그림(숨김)
+      const isHeaderRow = (r + 1) === f.headerRow;
+      tbody += `<tr class="${isHeaderRow ? "xt-headerrow" : ""}" data-row="${r}">`;
+      tbody += `<td class="xt-rownum ${f.rowSel.has(r) ? "xt-rowsel" : ""}"><input type="checkbox" class="xt-rowchk" data-row="${r}" ${f.rowSel.has(r) ? "checked" : ""}>${r + 1}</td>`;
+      for (let c = 0; c < nCols; c++) {
+        const v = row && row[c] != null ? row[c] : "";
+        const noMatch = f.noMatchCells && f.noMatchCells.has(r + "," + c);
+        tbody += `<td class="xt-cell${noMatch ? " xt-nomatch" : ""}" contenteditable="true" data-row="${r}" data-col="${c}">${esc(String(v))}</td>`;
+      }
+      tbody += `</tr>`;
+    });
+
+    document.getElementById("xtTable").innerHTML = `<thead>${thead}</thead><tbody>${tbody}</tbody>`;
+
+    document.querySelectorAll("#xtTable th[data-col]").forEach(th => th.addEventListener("click", () => {
+      const c = Number(th.dataset.col);
+      if (f.colSel.has(c)) f.colSel.delete(c); else f.colSel.add(c);
+      xtRenderGrid();
+    }));
+    document.querySelectorAll(".xt-rowchk").forEach(cb => cb.addEventListener("change", () => {
+      const r = Number(cb.dataset.row);
+      if (cb.checked) f.rowSel.add(r); else f.rowSel.delete(r);
+      cb.closest("td").classList.toggle("xt-rowsel", cb.checked);
+    }));
+    const selAll = document.getElementById("xtSelAllRows");
+    if (selAll) selAll.addEventListener("change", (e) => {
+      if (e.target.checked) f.aoa.forEach((_, r) => f.rowSel.add(r)); else f.rowSel.clear();
+      xtRenderGrid();
+    });
+    document.querySelectorAll("#xtTable td.xt-cell").forEach(td => td.addEventListener("blur", () => {
+      const r = Number(td.dataset.row), c = Number(td.dataset.col);
+      if (!f.aoa[r]) f.aoa[r] = [];
+      f.aoa[r][c] = td.textContent;
+    }));
+  }
+
+  /** 작업 배너의 작은 확인창. collect(overlay)가 false를 돌려주면 닫지 않고 그대로 둡니다(검증 실패).
+   *  afterRender(overlay)는 본문을 그린 직후 한 번 불러서, 필드끼리 서로 반응하게 만들 때 씁니다. */
+  function xtModal(title, bodyHtml, collect, afterRender) {
+    return new Promise((resolve) => {
+      let ov = document.getElementById("xtModalOverlay");
+      if (!ov) {
+        ov = document.createElement("div");
+        ov.id = "xtModalOverlay";
+        ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-start;justify-content:center;z-index:9999;padding:24px 14px;overflow:auto;";
+        document.body.appendChild(ov);
+      }
+      ov.innerHTML = `<div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:520px;width:100%;padding:20px;box-shadow:0 16px 50px rgba(0,0,0,.28);margin:auto;">
+        <div style="font-size:16px;font-weight:700;margin-bottom:14px;color:var(--text);">${esc(title)}</div>
+        <div id="xtModalBody">${bodyHtml}</div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+          <button type="button" class="btn ghost" id="xtModalCancel">취소</button>
+          <button type="button" class="btn primary" id="xtModalOk">확인</button>
+        </div>
+      </div>`;
+      ov.style.display = "flex";
+      const finish = (result) => { ov.style.display = "none"; ov.onclick = null; resolve(result); };
+      ov.onclick = (e) => { if (e.target === ov) finish(null); };
+      document.getElementById("xtModalCancel").onclick = () => finish(null);
+      document.getElementById("xtModalOk").onclick = () => {
+        const data = collect ? collect(ov) : "ok";
+        if (data === false) return;
+        finish(data);
+      };
+      if (afterRender) afterRender(ov);
+    });
+  }
+
+  document.getElementById("xtUploadBtn").addEventListener("click", () => document.getElementById("xtFileInput").click());
+  document.getElementById("xtFileInput").addEventListener("change", async (e) => {
+    if (e.target.files && e.target.files.length) await xtAddFiles(e.target.files);
+    e.target.value = "";
+  });
+  ["dragover", "drop"].forEach(evt => document.getElementById("xtGridWrap").addEventListener(evt, (e) => e.preventDefault()));
+  document.getElementById("xtGridWrap").addEventListener("drop", async (e) => {
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) await xtAddFiles(e.dataTransfer.files);
+  });
+  document.getElementById("xtUndoBtn").addEventListener("click", xtUndo);
+  document.getElementById("xtHeaderRowInput").addEventListener("change", (e) => {
+    const f = xtActiveFile(); if (!f) return;
+    f.headerRow = Math.max(1, Number(e.target.value) || 1);
+    xtRenderGrid();
+  });
+  document.getElementById("xtDownloadBtn").addEventListener("click", () => {
+    const f = xtActiveFile(); if (!f) return;
+    const ws = XLSX.utils.aoa_to_sheet(f.aoa);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "작업본");
+    XLSX.writeFile(wb, f.name.replace(/\.[^.]+$/, "") + "_작업본.xlsx");
+  });
+  document.getElementById("xtAddRowBtn").addEventListener("click", () => {
+    const f = xtActiveFile(); if (!f) return;
+    xtPushHistory();
+    f.aoa.push(new Array(xtColCount(f)).fill(""));
+    xtRenderGrid();
+    xtSetStatus("빈 행을 추가했어요.");
+  });
+  document.getElementById("xtDelRowBtn").addEventListener("click", () => {
+    const f = xtActiveFile(); if (!f) return;
+    if (!f.rowSel.size) { alert("삭제할 행을 왼쪽 체크박스로 먼저 골라주세요."); return; }
+    if (!confirm(`${f.rowSel.size}개 행을 삭제할까요?`)) return;
+    xtPushHistory();
+    f.aoa = f.aoa.filter((_, r) => !f.rowSel.has(r));
+    f.rowSel.clear();
+    xtRenderGrid();
+    xtSetStatus("선택한 행을 삭제했어요.");
+  });
+
+  document.getElementById("xtVlookupBtn").addEventListener("click", async () => {
+    const f = xtActiveFile(); if (!f) return;
+    if (XT_FILES.length < 2) { alert("매칭할 다른 파일을 먼저 하나 더 올려주세요 (조회할 파일)."); return; }
+    const others = XT_FILES.map((x, i) => i).filter(i => i !== XT_ACTIVE);
+    const fileOpts = others.map(i => `<option value="${i}">${esc(XT_FILES[i].name)}</option>`).join("");
+    const body = `<div style="display:grid;gap:12px;">
+      <div><label style="font-size:12px;font-weight:600;color:var(--text-muted);">조회할 파일 (여기서 값을 가져와요)</label>
+        <select id="xtVFile" class="selectfilter" style="width:100%;">${fileOpts}</select></div>
+      <div><label style="font-size:12px;font-weight:600;color:var(--text-muted);">기준 파일(${esc(f.name)})의 매칭 열</label>
+        <select id="xtVBaseKey" class="selectfilter" style="width:100%;">${xtColOptsHtml(f)}</select></div>
+      <div><label style="font-size:12px;font-weight:600;color:var(--text-muted);">조회 파일의 매칭 열</label>
+        <select id="xtVLookKey" class="selectfilter" style="width:100%;"></select></div>
+      <div><label style="font-size:12px;font-weight:600;color:var(--text-muted);">가져올 열 (여러 개면 쉼표, 예: M,N)</label>
+        <input type="text" id="xtVPullCols" placeholder="예: M" class="selectfilter" style="width:100%;"></div>
+      <div><label style="font-size:12px;font-weight:600;color:var(--text-muted);">새로 넣을 열 이름 (쉼표로, 위 열 개수와 맞춰 주세요)</label>
+        <input type="text" id="xtVNewNames" placeholder="예: 송장번호" class="selectfilter" style="width:100%;"></div>
+      <div style="font-size:12px;color:var(--text-muted);display:flex;gap:10px;align-items:center;">데이터 시작 행 — 기준
+        <input type="number" id="xtVBaseStart" value="${f.headerRow + 1}" min="1" style="width:56px;"> / 조회
+        <input type="number" id="xtVLookStart" value="1" min="1" style="width:56px;"></div>
+      <div id="xtVErr" style="color:var(--danger);font-size:12px;min-height:16px;"></div>
+    </div>`;
+    const result = await xtModal("VLOOKUP 매칭", body, (ov) => {
+      const lookFileIdx = Number(ov.querySelector("#xtVFile").value);
+      const baseKey = Number(ov.querySelector("#xtVBaseKey").value);
+      const lookKey = Number(ov.querySelector("#xtVLookKey").value);
+      const pullCols = ov.querySelector("#xtVPullCols").value.split(",").map(s => s.trim()).filter(Boolean);
+      const newNames = ov.querySelector("#xtVNewNames").value.split(",").map(s => s.trim()).filter(Boolean);
+      const err = ov.querySelector("#xtVErr");
+      if (!pullCols.length) { err.textContent = "가져올 열을 입력해 주세요 (예: M 또는 M,N)."; return false; }
+      if (newNames.length !== pullCols.length) { err.textContent = "새 열 이름 개수가 가져올 열 개수랑 달라요."; return false; }
+      const pullIdx = pullCols.map(xtLetterToIdx);
+      if (pullIdx.some(i => i == null)) { err.textContent = "열 표시가 올바르지 않아요 (A, B, C… 형식으로 적어 주세요)."; return false; }
+      return {
+        lookFileIdx, baseKey, lookKey, pullIdx, newNames,
+        baseStart: Number(ov.querySelector("#xtVBaseStart").value) || 1,
+        lookStart: Number(ov.querySelector("#xtVLookStart").value) || 1,
+      };
+    }, (ov) => {
+      const fillLookKey = () => {
+        const lf = XT_FILES[Number(ov.querySelector("#xtVFile").value)];
+        ov.querySelector("#xtVLookKey").innerHTML = xtColOptsHtml(lf);
+      };
+      fillLookKey();
+      ov.querySelector("#xtVFile").addEventListener("change", fillLookKey);
+    });
+    if (!result) return;
+    xtPushHistory();
+    const lookFile = XT_FILES[result.lookFileIdx];
+    const map = new Map();
+    for (let r = result.lookStart - 1; r < lookFile.aoa.length; r++) {
+      const row = lookFile.aoa[r]; if (!row) continue;
+      const key = xtNormKey(row[result.lookKey]);
+      if (key && !map.has(key)) map.set(key, row);
+    }
+    const baseColCount = xtColCount(f);
+    const targetCols = result.newNames.map((_, k) => baseColCount + k);
+    if (!f.aoa[f.headerRow - 1]) f.aoa[f.headerRow - 1] = [];
+    targetCols.forEach((tc, k) => { f.aoa[f.headerRow - 1][tc] = result.newNames[k]; });
+    f.noMatchCells = new Set();
+    let matched = 0, unmatched = 0;
+    for (let r = result.baseStart - 1; r < f.aoa.length; r++) {
+      if (r === f.headerRow - 1) continue;
+      const row = f.aoa[r]; if (!row || !row.some(v => String(v || "").trim())) continue;
+      const key = xtNormKey(row[result.baseKey]);
+      const hit = key ? map.get(key) : null;
+      if (hit) {
+        matched++;
+        targetCols.forEach((tc, k) => { row[tc] = hit[result.pullIdx[k]] != null ? hit[result.pullIdx[k]] : ""; });
+      } else {
+        unmatched++;
+        targetCols.forEach((tc) => { row[tc] = ""; f.noMatchCells.add(r + "," + tc); });
+      }
+    }
+    xtRenderGrid();
+    xtSetStatus(`매칭 완료 — ${matched}건 일치, ${unmatched}건 매칭 안 됨(빨간 칸)`, unmatched ? "warn" : "ok");
+  });
+
+  document.getElementById("xtStatBtn").addEventListener("click", async () => {
+    const f = xtActiveFile(); if (!f) return;
+    const body = `<div style="display:grid;gap:12px;">
+      <div><label style="font-size:12px;font-weight:600;color:var(--text-muted);">대상 열</label>
+        <select id="xtSCol" class="selectfilter" style="width:100%;">${xtColOptsHtml(f)}</select></div>
+      <div><label style="font-size:12px;font-weight:600;color:var(--text-muted);">계산 종류</label>
+        <select id="xtSKind" class="selectfilter" style="width:100%;">
+          <option value="sum">합계 (SUM)</option>
+          <option value="avg">평균 (AVERAGE)</option>
+          <option value="count">숫자 개수 (COUNT)</option>
+          <option value="counta">채워진 셀 개수 (COUNTA)</option>
+        </select></div>
+      <div style="font-size:12px;color:var(--text-muted);">데이터 시작 행 <input type="number" id="xtSStart" value="${f.headerRow + 1}" min="1" style="width:56px;"></div>
+    </div>`;
+    const params = await xtModal("합계·평균·개수", body, (ov) => ({
+      col: Number(ov.querySelector("#xtSCol").value),
+      kind: ov.querySelector("#xtSKind").value,
+      start: Number(ov.querySelector("#xtSStart").value) || 1,
+    }));
+    if (!params) return;
+    const nums = []; let filled = 0;
+    for (let r = params.start - 1; r < f.aoa.length; r++) {
+      const row = f.aoa[r]; if (!row) continue;
+      const raw = row[params.col];
+      if (raw !== "" && raw != null) filled++;
+      const n = Number(String(raw).replace(/,/g, ""));
+      if (String(raw).trim() !== "" && Number.isFinite(n)) nums.push(n);
+    }
+    let result;
+    if (params.kind === "sum") result = nums.reduce((a, b) => a + b, 0);
+    else if (params.kind === "avg") result = nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : 0;
+    else if (params.kind === "count") result = nums.length;
+    else result = filled;
+    xtSetStatus(`${xtColLabel(f, params.col)} 열 결과 — ${result.toLocaleString(undefined, { maximumFractionDigits: 2 })}`, "ok");
+  });
+
+  document.getElementById("xtDedupeBtn").addEventListener("click", async () => {
+    const f = xtActiveFile(); if (!f) return;
+    const body = `<div style="display:grid;gap:12px;">
+      <div><label style="font-size:12px;font-weight:600;color:var(--text-muted);">기준 열 (여러 개면 쉼표, 예: A,C)</label>
+        <input type="text" id="xtDCols" placeholder="예: A" class="selectfilter" style="width:100%;"></div>
+      <div style="font-size:12px;color:var(--text-muted);">데이터 시작 행 <input type="number" id="xtDStart" value="${f.headerRow + 1}" min="1" style="width:56px;"></div>
+      <div id="xtDErr" style="color:var(--danger);font-size:12px;min-height:16px;"></div>
+    </div>`;
+    const params = await xtModal("중복 제거", body, (ov) => {
+      const cols = ov.querySelector("#xtDCols").value.split(",").map(s => s.trim()).filter(Boolean).map(xtLetterToIdx);
+      const err = ov.querySelector("#xtDErr");
+      if (!cols.length || cols.some(c => c == null)) { err.textContent = "기준 열을 A, B 형식으로 입력해 주세요."; return false; }
+      return { cols, start: Number(ov.querySelector("#xtDStart").value) || 1 };
+    });
+    if (!params) return;
+    xtPushHistory();
+    const seen = new Set(); const kept = []; let removed = 0;
+    f.aoa.forEach((row, r) => {
+      if (r < params.start - 1) { kept.push(row); return; }
+      const key = params.cols.map(c => xtNormKey(row ? row[c] : "")).join("§");
+      if (seen.has(key)) { removed++; return; }
+      seen.add(key); kept.push(row);
+    });
+    f.aoa = kept; f.rowSel.clear();
+    xtRenderGrid();
+    xtSetStatus(`중복 ${removed}건을 지웠어요.`, "ok");
+  });
+
+  document.getElementById("xtSortBtn").addEventListener("click", async () => {
+    const f = xtActiveFile(); if (!f) return;
+    const body = `<div style="display:grid;gap:12px;">
+      <div><label style="font-size:12px;font-weight:600;color:var(--text-muted);">정렬 기준 열</label>
+        <select id="xtStCol" class="selectfilter" style="width:100%;">${xtColOptsHtml(f)}</select></div>
+      <div><label style="font-size:12px;font-weight:600;color:var(--text-muted);">순서</label>
+        <select id="xtStDir" class="selectfilter" style="width:100%;">
+          <option value="asc">오름차순 (작은→큰, 가나다)</option>
+          <option value="desc">내림차순 (큰→작은)</option>
+        </select></div>
+      <div style="font-size:12px;color:var(--text-muted);">데이터 시작 행 <input type="number" id="xtStStart" value="${f.headerRow + 1}" min="1" style="width:56px;"></div>
+    </div>`;
+    const params = await xtModal("정렬", body, (ov) => ({
+      col: Number(ov.querySelector("#xtStCol").value),
+      dir: ov.querySelector("#xtStDir").value,
+      start: Number(ov.querySelector("#xtStStart").value) || 1,
+    }));
+    if (!params) return;
+    xtPushHistory();
+    const head = f.aoa.slice(0, params.start - 1);
+    const bodyRows = f.aoa.slice(params.start - 1);
+    bodyRows.sort((a, b) => {
+      const av = a ? a[params.col] : "", bv = b ? b[params.col] : "";
+      const an = Number(String(av).replace(/,/g, "")), bn = Number(String(bv).replace(/,/g, ""));
+      let cmp;
+      if (String(av).trim() !== "" && String(bv).trim() !== "" && Number.isFinite(an) && Number.isFinite(bn)) cmp = an - bn;
+      else cmp = String(av).localeCompare(String(bv), "ko");
+      return params.dir === "desc" ? -cmp : cmp;
+    });
+    f.aoa = head.concat(bodyRows); f.rowSel.clear();
+    xtRenderGrid();
+    xtSetStatus("정렬했어요.", "ok");
+  });
+
+  document.getElementById("xtFilterBtn").addEventListener("click", async () => {
+    const f = xtActiveFile(); if (!f) return;
+    if (f.filter) { f.filter = null; xtRenderGrid(); xtRenderToolbarState(); xtSetStatus("필터를 해제했어요.", "ok"); return; }
+    const body = `<div style="display:grid;gap:12px;">
+      <div><label style="font-size:12px;font-weight:600;color:var(--text-muted);">필터 열</label>
+        <select id="xtFCol" class="selectfilter" style="width:100%;">${xtColOptsHtml(f)}</select></div>
+      <div><label style="font-size:12px;font-weight:600;color:var(--text-muted);">이 텍스트를 포함하는 행만 보기</label>
+        <input type="text" id="xtFText" class="selectfilter" style="width:100%;" placeholder="예: 완료"></div>
+    </div>`;
+    const params = await xtModal("필터 (버튼을 다시 누르면 해제돼요)", body, (ov) => ({
+      col: Number(ov.querySelector("#xtFCol").value),
+      text: ov.querySelector("#xtFText").value,
+    }));
+    if (!params || !params.text) return;
+    f.filter = params;
+    xtRenderGrid(); xtRenderToolbarState();
+    xtSetStatus(`"${params.text}" 포함된 행만 보여요. (필터 버튼을 다시 누르면 해제)`, "ok");
+  });
+
+  document.getElementById("xtReplaceBtn").addEventListener("click", async () => {
+    const f = xtActiveFile(); if (!f) return;
+    const body = `<div style="display:grid;gap:12px;">
+      <div><label style="font-size:12px;font-weight:600;color:var(--text-muted);">적용 범위</label>
+        <select id="xtRCol" class="selectfilter" style="width:100%;"><option value="">전체 열</option>${xtColOptsHtml(f)}</select></div>
+      <div><label style="font-size:12px;font-weight:600;color:var(--text-muted);">찾을 텍스트</label>
+        <input type="text" id="xtRFind" class="selectfilter" style="width:100%;"></div>
+      <div><label style="font-size:12px;font-weight:600;color:var(--text-muted);">바꿀 텍스트</label>
+        <input type="text" id="xtRTo" class="selectfilter" style="width:100%;"></div>
+      <div id="xtRErr" style="color:var(--danger);font-size:12px;min-height:16px;"></div>
+    </div>`;
+    const params = await xtModal("찾기·바꾸기", body, (ov) => {
+      const find = ov.querySelector("#xtRFind").value;
+      if (!find) { ov.querySelector("#xtRErr").textContent = "찾을 텍스트를 입력해 주세요."; return false; }
+      const colVal = ov.querySelector("#xtRCol").value;
+      return { col: colVal === "" ? null : Number(colVal), find, to: ov.querySelector("#xtRTo").value };
+    });
+    if (!params) return;
+    xtPushHistory();
+    let count = 0;
+    f.aoa.forEach(row => {
+      if (!row) return;
+      row.forEach((v, c) => {
+        if (params.col != null && c !== params.col) return;
+        const s = String(v == null ? "" : v);
+        if (s.includes(params.find)) { row[c] = s.split(params.find).join(params.to); count++; }
+      });
+    });
+    xtRenderGrid();
+    xtSetStatus(`${count}칸을 바꿨어요.`, "ok");
+  });
+
+  document.getElementById("xtCalcColBtn").addEventListener("click", async () => {
+    const f = xtActiveFile(); if (!f) return;
+    const body = `<div style="display:grid;gap:12px;">
+      <div><label style="font-size:12px;font-weight:600;color:var(--text-muted);">새 열 이름</label>
+        <input type="text" id="xtCName" class="selectfilter" style="width:100%;" placeholder="예: 합계"></div>
+      <div><label style="font-size:12px;font-weight:600;color:var(--text-muted);">계산 방식</label>
+        <select id="xtCKind" class="selectfilter" style="width:100%;">
+          <option value="add">더하기 (A+B)</option>
+          <option value="sub">빼기 (A−B)</option>
+          <option value="mul">곱하기 (A×B)</option>
+          <option value="div">나누기 (A÷B)</option>
+          <option value="concat">텍스트 합치기 (A+구분자+B)</option>
+        </select></div>
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;"><label style="font-size:12px;font-weight:600;color:var(--text-muted);">열 A</label>
+          <select id="xtCColA" class="selectfilter" style="width:100%;">${xtColOptsHtml(f)}</select></div>
+        <div style="flex:1;"><label style="font-size:12px;font-weight:600;color:var(--text-muted);">열 B</label>
+          <select id="xtCColB" class="selectfilter" style="width:100%;">${xtColOptsHtml(f)}</select></div>
+      </div>
+      <div id="xtCSepWrap" style="display:none;"><label style="font-size:12px;font-weight:600;color:var(--text-muted);">구분자</label>
+        <input type="text" id="xtCSep" class="selectfilter" style="width:100%;" placeholder="예: 공백 한 칸, - 등"></div>
+      <div style="font-size:12px;color:var(--text-muted);">데이터 시작 행 <input type="number" id="xtCStart" value="${f.headerRow + 1}" min="1" style="width:56px;"></div>
+      <div id="xtCErr" style="color:var(--danger);font-size:12px;min-height:16px;"></div>
+    </div>`;
+    const params = await xtModal("계산열 추가", body, (ov) => {
+      const name = ov.querySelector("#xtCName").value.trim();
+      if (!name) { ov.querySelector("#xtCErr").textContent = "새 열 이름을 입력해 주세요."; return false; }
+      return {
+        name, kind: ov.querySelector("#xtCKind").value,
+        colA: Number(ov.querySelector("#xtCColA").value), colB: Number(ov.querySelector("#xtCColB").value),
+        sep: ov.querySelector("#xtCSep").value,
+        start: Number(ov.querySelector("#xtCStart").value) || 1,
+      };
+    }, (ov) => {
+      ov.querySelector("#xtCKind").addEventListener("change", (e) => {
+        ov.querySelector("#xtCSepWrap").style.display = e.target.value === "concat" ? "" : "none";
+      });
+    });
+    if (!params) return;
+    xtPushHistory();
+    const newCol = xtColCount(f);
+    if (!f.aoa[f.headerRow - 1]) f.aoa[f.headerRow - 1] = [];
+    f.aoa[f.headerRow - 1][newCol] = params.name;
+    for (let r = params.start - 1; r < f.aoa.length; r++) {
+      if (r === f.headerRow - 1) continue;
+      const row = f.aoa[r]; if (!row || !row.some(v => String(v || "").trim())) continue;
+      const a = row[params.colA], b = row[params.colB];
+      const an = Number(String(a).replace(/,/g, "")), bn = Number(String(b).replace(/,/g, ""));
+      let val;
+      if (params.kind === "concat") val = String(a ?? "") + (params.sep || "") + String(b ?? "");
+      else if (!Number.isFinite(an) || !Number.isFinite(bn)) val = "";
+      else if (params.kind === "add") val = an + bn;
+      else if (params.kind === "sub") val = an - bn;
+      else if (params.kind === "mul") val = an * bn;
+      else val = bn !== 0 ? an / bn : "";
+      row[newCol] = val;
+    }
+    xtRenderGrid();
+    xtSetStatus(`"${params.name}" 열을 추가했어요.`, "ok");
   });
 
   // Slack 링크 버튼(#form)으로 들어온 경우, 요청서 작성 화면으로 바로 이동합니다.
