@@ -1452,8 +1452,9 @@
           <button type="button" class="xt-btn" id="xtReplaceBtn" disabled>🔄 찾기·바꾸기</button>
           <button type="button" class="xt-btn" id="xtCalcColBtn" disabled>➕ 계산열 추가</button>
           <span class="xt-sep"></span>
-          <button type="button" class="xt-btn" id="xtAddRowBtn" disabled>⬇ 행 추가</button>
+          <button type="button" class="xt-btn" id="xtAddRowBtn" disabled title="행을 체크하고 누르면 그 행 바로 다음에 끼워 넣어요. 아무것도 안 골랐으면 맨 아래에 추가돼요.">⬇ 행 추가</button>
           <button type="button" class="xt-btn" id="xtDelRowBtn" disabled>🗑 선택 행 삭제</button>
+          <button type="button" class="xt-btn" id="xtDelColBtn" disabled title="위쪽 열 문자(A, B, C…)를 클릭해서 파란색으로 고른 뒤 눌러요.">🗑 선택 열 삭제</button>
           <button type="button" class="xt-btn" id="xtUndoBtn" disabled>↩ 실행 취소</button>
           <span class="xt-spacer"></span>
           <label class="xt-headerlabel">헤더 행 <input type="number" id="xtHeaderRowInput" min="1" value="1"></label>
@@ -5736,7 +5737,7 @@
   function xtRenderToolbarState() {
     const has = XT_ACTIVE >= 0;
     const f = xtActiveFile();
-    ["xtVlookupBtn", "xtStatBtn", "xtDedupeBtn", "xtSortBtn", "xtFilterBtn", "xtReplaceBtn", "xtCalcColBtn", "xtAddRowBtn", "xtDelRowBtn", "xtDownloadBtn"]
+    ["xtVlookupBtn", "xtStatBtn", "xtDedupeBtn", "xtSortBtn", "xtFilterBtn", "xtReplaceBtn", "xtCalcColBtn", "xtAddRowBtn", "xtDelRowBtn", "xtDelColBtn", "xtDownloadBtn"]
       .forEach(id => { const b = document.getElementById(id); if (b) b.disabled = !has; });
     document.getElementById("xtUndoBtn").disabled = !(f && f.history.length);
     document.getElementById("xtHeaderRowInput").disabled = !has;
@@ -5823,8 +5824,9 @@
         </div>
       </div>`;
       ov.style.display = "flex";
-      const finish = (result) => { ov.style.display = "none"; ov.onclick = null; resolve(result); };
-      ov.onclick = (e) => { if (e.target === ov) finish(null); };
+      // 배경(어두운 곳)을 눌러도 닫히지 않습니다 — 입력하던 내용이 실수로 다 날아가는 걸 막기 위해서예요.
+      // 닫으려면 반드시 "취소" 버튼을 눌러야 해요.
+      const finish = (result) => { ov.style.display = "none"; resolve(result); };
       document.getElementById("xtModalCancel").onclick = () => finish(null);
       document.getElementById("xtModalOk").onclick = () => {
         const data = collect ? collect(ov) : "ok";
@@ -5860,9 +5862,19 @@
   document.getElementById("xtAddRowBtn").addEventListener("click", () => {
     const f = xtActiveFile(); if (!f) return;
     xtPushHistory();
-    f.aoa.push(new Array(xtColCount(f)).fill(""));
-    xtRenderGrid();
-    xtSetStatus("빈 행을 추가했어요.");
+    const blank = new Array(xtColCount(f)).fill("");
+    if (f.rowSel.size) {
+      // 체크한 행이 있으면 그 중 가장 아래 행 바로 다음에 끼워 넣습니다(중간 삽입).
+      const lastSel = Math.max(...f.rowSel);
+      f.aoa.splice(lastSel + 1, 0, blank);
+      f.rowSel.clear();
+      xtRenderGrid();
+      xtSetStatus(`${lastSel + 2}행 위치에 빈 행을 끼워 넣었어요.`);
+    } else {
+      f.aoa.push(blank);
+      xtRenderGrid();
+      xtSetStatus("맨 아래에 빈 행을 추가했어요. (중간에 넣으려면 그 위 행을 체크하고 눌러주세요)");
+    }
   });
   document.getElementById("xtDelRowBtn").addEventListener("click", () => {
     const f = xtActiveFile(); if (!f) return;
@@ -5873,6 +5885,18 @@
     f.rowSel.clear();
     xtRenderGrid();
     xtSetStatus("선택한 행을 삭제했어요.");
+  });
+  document.getElementById("xtDelColBtn").addEventListener("click", () => {
+    const f = xtActiveFile(); if (!f) return;
+    if (!f.colSel.size) { alert("삭제할 열을 위쪽 열 문자(A, B, C…)를 클릭해서 먼저 골라주세요."); return; }
+    const letters = [...f.colSel].sort((a, b) => a - b).map(xtColLetter).join(", ");
+    if (!confirm(`${letters} 열을 삭제할까요?`)) return;
+    xtPushHistory();
+    const cols = [...f.colSel].sort((a, b) => b - a);   // 뒤(오른쪽) 열부터 지워야 인덱스가 안 밀려요
+    f.aoa.forEach(row => { if (row) cols.forEach(c => row.splice(c, 1)); });
+    f.colSel.clear();
+    xtRenderGrid();
+    xtSetStatus(`${letters} 열을 삭제했어요.`);
   });
 
   document.getElementById("xtVlookupBtn").addEventListener("click", async () => {
@@ -5887,10 +5911,9 @@
         <select id="xtVBaseKey" class="selectfilter" style="width:100%;">${xtColOptsHtml(f)}</select></div>
       <div><label style="font-size:12px;font-weight:600;color:var(--text-muted);">조회 파일의 매칭 열</label>
         <select id="xtVLookKey" class="selectfilter" style="width:100%;"></select></div>
-      <div><label style="font-size:12px;font-weight:600;color:var(--text-muted);">가져올 열 (여러 개면 쉼표, 예: M,N)</label>
-        <input type="text" id="xtVPullCols" placeholder="예: M" class="selectfilter" style="width:100%;"></div>
-      <div><label style="font-size:12px;font-weight:600;color:var(--text-muted);">새로 넣을 열 이름 (쉼표로, 위 열 개수와 맞춰 주세요)</label>
-        <input type="text" id="xtVNewNames" placeholder="예: 송장번호" class="selectfilter" style="width:100%;"></div>
+      <div><label style="font-size:12px;font-weight:600;color:var(--text-muted);">가져올 열 (조회 파일 → 새 열 이름) — 열 문자를 직접 안 적어도, 드롭다운에서 골라요</label>
+        <div id="xtVPullRows"></div>
+        <button type="button" id="xtVAddPull" class="btn ghost small" style="margin-top:4px;">+ 가져올 열 추가</button></div>
       <div style="font-size:12px;color:var(--text-muted);display:flex;gap:10px;align-items:center;">데이터 시작 행 — 기준
         <input type="number" id="xtVBaseStart" value="${f.headerRow + 1}" min="1" style="width:56px;"> / 조회
         <input type="number" id="xtVLookStart" value="1" min="1" style="width:56px;"></div>
@@ -5900,25 +5923,62 @@
       const lookFileIdx = Number(ov.querySelector("#xtVFile").value);
       const baseKey = Number(ov.querySelector("#xtVBaseKey").value);
       const lookKey = Number(ov.querySelector("#xtVLookKey").value);
-      const pullCols = ov.querySelector("#xtVPullCols").value.split(",").map(s => s.trim()).filter(Boolean);
-      const newNames = ov.querySelector("#xtVNewNames").value.split(",").map(s => s.trim()).filter(Boolean);
       const err = ov.querySelector("#xtVErr");
-      if (!pullCols.length) { err.textContent = "가져올 열을 입력해 주세요 (예: M 또는 M,N)."; return false; }
-      if (newNames.length !== pullCols.length) { err.textContent = "새 열 이름 개수가 가져올 열 개수랑 달라요."; return false; }
-      const pullIdx = pullCols.map(xtLetterToIdx);
-      if (pullIdx.some(i => i == null)) { err.textContent = "열 표시가 올바르지 않아요 (A, B, C… 형식으로 적어 주세요)."; return false; }
+      const rows = [...ov.querySelectorAll(".xt-pullrow")];
+      const pullIdx = rows.map(r => Number(r.querySelector(".xtVPullCol").value));
+      const newNames = rows.map(r => r.querySelector(".xtVPullName").value.trim());
+      if (!rows.length) { err.textContent = "가져올 열을 하나 이상 골라 주세요."; return false; }
+      if (newNames.some(n => !n)) { err.textContent = "새 열 이름을 모두 입력해 주세요."; return false; }
       return {
         lookFileIdx, baseKey, lookKey, pullIdx, newNames,
         baseStart: Number(ov.querySelector("#xtVBaseStart").value) || 1,
         lookStart: Number(ov.querySelector("#xtVLookStart").value) || 1,
       };
     }, (ov) => {
+      const pullRowHtml = (lf) => `<div class="xt-pullrow" style="display:flex;gap:8px;margin-bottom:6px;align-items:center;">
+          <select class="xtVPullCol selectfilter" style="flex:1;min-width:0;">${xtColOptsHtml(lf)}</select>
+          <span style="color:var(--text-muted);flex:none;">→</span>
+          <input type="text" class="xtVPullName selectfilter" style="flex:1;min-width:0;" placeholder="새 열 이름" data-auto="1">
+          <button type="button" class="xtVPullDel" style="flex:none;border:none;background:none;cursor:pointer;color:var(--text-muted);font-size:15px;padding:2px 4px;">✕</button>
+        </div>`;
+      const curLookFile = () => XT_FILES[Number(ov.querySelector("#xtVFile").value)];
+      const wireRow = (rowEl) => {
+        const sel = rowEl.querySelector(".xtVPullCol");
+        const nameInp = rowEl.querySelector(".xtVPullName");
+        const applyAutoName = () => {
+          if (nameInp.dataset.auto !== "1") return;
+          const lf = curLookFile();
+          const hv = lf.aoa[lf.headerRow - 1] ? String(lf.aoa[lf.headerRow - 1][Number(sel.value)] ?? "").trim() : "";
+          nameInp.value = hv || xtColLetter(Number(sel.value));
+        };
+        sel.addEventListener("change", applyAutoName);
+        nameInp.addEventListener("input", () => { nameInp.dataset.auto = "0"; });
+        rowEl.querySelector(".xtVPullDel").addEventListener("click", () => {
+          if (ov.querySelectorAll(".xt-pullrow").length <= 1) return;   // 최소 1줄은 남겨 둠
+          rowEl.remove();
+        });
+        applyAutoName();
+      };
+      const addPullRow = () => {
+        const wrap = ov.querySelector("#xtVPullRows");
+        wrap.insertAdjacentHTML("beforeend", pullRowHtml(curLookFile()));
+        wireRow(wrap.lastElementChild);
+      };
       const fillLookKey = () => {
-        const lf = XT_FILES[Number(ov.querySelector("#xtVFile").value)];
+        const lf = curLookFile();
         ov.querySelector("#xtVLookKey").innerHTML = xtColOptsHtml(lf);
+        ov.querySelector("#xtVLookStart").value = lf.headerRow + 1;   // 그 파일의 헤더 행 기준으로 자동 추천
+        // 조회할 파일이 바뀌면, 이미 만들어둔 '가져올 열' 줄들도 그 파일 기준으로 다시 채웁니다.
+        ov.querySelectorAll(".xt-pullrow").forEach(rowEl => {
+          rowEl.querySelector(".xtVPullCol").innerHTML = xtColOptsHtml(lf);
+          rowEl.querySelector(".xtVPullName").dataset.auto = "1";
+          wireRow(rowEl);
+        });
       };
       fillLookKey();
+      addPullRow();
       ov.querySelector("#xtVFile").addEventListener("change", fillLookKey);
+      ov.querySelector("#xtVAddPull").addEventListener("click", addPullRow);
     });
     if (!result) return;
     xtPushHistory();
@@ -6113,8 +6173,9 @@
           <option value="mul">곱하기 (A×B)</option>
           <option value="div">나누기 (A÷B)</option>
           <option value="concat">텍스트 합치기 (A+구분자+B)</option>
+          <option value="if">조건 (IF) — 조건에 따라 값 넣기</option>
         </select></div>
-      <div style="display:flex;gap:8px;">
+      <div id="xtCAbWrap" style="display:flex;gap:8px;">
         <div style="flex:1;"><label style="font-size:12px;font-weight:600;color:var(--text-muted);">열 A</label>
           <select id="xtCColA" class="selectfilter" style="width:100%;">${xtColOptsHtml(f)}</select></div>
         <div style="flex:1;"><label style="font-size:12px;font-weight:600;color:var(--text-muted);">열 B</label>
@@ -6122,22 +6183,67 @@
       </div>
       <div id="xtCSepWrap" style="display:none;"><label style="font-size:12px;font-weight:600;color:var(--text-muted);">구분자</label>
         <input type="text" id="xtCSep" class="selectfilter" style="width:100%;" placeholder="예: 공백 한 칸, - 등"></div>
+      <div id="xtCIfWrap" style="display:none;">
+        <div style="display:flex;gap:8px;">
+          <div style="flex:1;"><label style="font-size:12px;font-weight:600;color:var(--text-muted);">조건 열</label>
+            <select id="xtCIfCol" class="selectfilter" style="width:100%;">${xtColOptsHtml(f)}</select></div>
+          <div style="flex:1;"><label style="font-size:12px;font-weight:600;color:var(--text-muted);">조건</label>
+            <select id="xtCIfOp" class="selectfilter" style="width:100%;">
+              <option value="eq">같다 (=)</option>
+              <option value="ne">다르다 (≠)</option>
+              <option value="gt">보다 크다 (&gt;)</option>
+              <option value="lt">보다 작다 (&lt;)</option>
+              <option value="gte">크거나 같다 (≥)</option>
+              <option value="lte">작거나 같다 (≤)</option>
+              <option value="contains">포함한다</option>
+              <option value="empty">비어있다</option>
+              <option value="notempty">비어있지 않다</option>
+            </select></div>
+        </div>
+        <div id="xtCIfValWrap" style="margin-top:10px;"><label style="font-size:12px;font-weight:600;color:var(--text-muted);">비교값</label>
+          <input type="text" id="xtCIfVal" class="selectfilter" style="width:100%;" placeholder="예: 완료"></div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <div style="flex:1;"><label style="font-size:12px;font-weight:600;color:var(--text-muted);">참일 때 값</label>
+            <input type="text" id="xtCIfTrue" class="selectfilter" style="width:100%;"></div>
+          <div style="flex:1;"><label style="font-size:12px;font-weight:600;color:var(--text-muted);">거짓일 때 값</label>
+            <input type="text" id="xtCIfFalse" class="selectfilter" style="width:100%;"></div>
+        </div>
+      </div>
       <div style="font-size:12px;color:var(--text-muted);">데이터 시작 행 <input type="number" id="xtCStart" value="${f.headerRow + 1}" min="1" style="width:56px;"></div>
       <div id="xtCErr" style="color:var(--danger);font-size:12px;min-height:16px;"></div>
     </div>`;
     const params = await xtModal("계산열 추가", body, (ov) => {
       const name = ov.querySelector("#xtCName").value.trim();
       if (!name) { ov.querySelector("#xtCErr").textContent = "새 열 이름을 입력해 주세요."; return false; }
-      return {
-        name, kind: ov.querySelector("#xtCKind").value,
+      const kind = ov.querySelector("#xtCKind").value;
+      const base = { name, kind, start: Number(ov.querySelector("#xtCStart").value) || 1 };
+      if (kind === "if") {
+        return Object.assign(base, {
+          ifCol: Number(ov.querySelector("#xtCIfCol").value),
+          ifOp: ov.querySelector("#xtCIfOp").value,
+          ifVal: ov.querySelector("#xtCIfVal").value,
+          ifTrue: ov.querySelector("#xtCIfTrue").value,
+          ifFalse: ov.querySelector("#xtCIfFalse").value,
+        });
+      }
+      return Object.assign(base, {
         colA: Number(ov.querySelector("#xtCColA").value), colB: Number(ov.querySelector("#xtCColB").value),
         sep: ov.querySelector("#xtCSep").value,
-        start: Number(ov.querySelector("#xtCStart").value) || 1,
-      };
-    }, (ov) => {
-      ov.querySelector("#xtCKind").addEventListener("change", (e) => {
-        ov.querySelector("#xtCSepWrap").style.display = e.target.value === "concat" ? "" : "none";
       });
+    }, (ov) => {
+      const syncKindUi = () => {
+        const kind = ov.querySelector("#xtCKind").value;
+        ov.querySelector("#xtCAbWrap").style.display = kind === "if" ? "none" : "flex";
+        ov.querySelector("#xtCSepWrap").style.display = kind === "concat" ? "" : "none";
+        ov.querySelector("#xtCIfWrap").style.display = kind === "if" ? "" : "none";
+      };
+      const syncIfValUi = () => {
+        const op = ov.querySelector("#xtCIfOp").value;
+        ov.querySelector("#xtCIfValWrap").style.display = (op === "empty" || op === "notempty") ? "none" : "";
+      };
+      ov.querySelector("#xtCKind").addEventListener("change", syncKindUi);
+      ov.querySelector("#xtCIfOp").addEventListener("change", syncIfValUi);
+      syncKindUi(); syncIfValUi();
     });
     if (!params) return;
     xtPushHistory();
@@ -6147,15 +6253,33 @@
     for (let r = params.start - 1; r < f.aoa.length; r++) {
       if (r === f.headerRow - 1) continue;
       const row = f.aoa[r]; if (!row || !row.some(v => String(v || "").trim())) continue;
-      const a = row[params.colA], b = row[params.colB];
-      const an = Number(String(a).replace(/,/g, "")), bn = Number(String(b).replace(/,/g, ""));
       let val;
-      if (params.kind === "concat") val = String(a ?? "") + (params.sep || "") + String(b ?? "");
-      else if (!Number.isFinite(an) || !Number.isFinite(bn)) val = "";
-      else if (params.kind === "add") val = an + bn;
-      else if (params.kind === "sub") val = an - bn;
-      else if (params.kind === "mul") val = an * bn;
-      else val = bn !== 0 ? an / bn : "";
+      if (params.kind === "if") {
+        const cell = row[params.ifCol];
+        const cellStr = String(cell ?? "").trim();
+        const cn = Number(String(cell).replace(/,/g, "")), vn = Number(String(params.ifVal).replace(/,/g, ""));
+        const numOk = Number.isFinite(cn) && Number.isFinite(vn) && cellStr !== "" && String(params.ifVal).trim() !== "";
+        let cond;
+        if (params.ifOp === "empty") cond = cellStr === "";
+        else if (params.ifOp === "notempty") cond = cellStr !== "";
+        else if (params.ifOp === "contains") cond = cellStr.includes(params.ifVal);
+        else if (params.ifOp === "eq") cond = numOk ? cn === vn : xtNormKey(cell) === xtNormKey(params.ifVal);
+        else if (params.ifOp === "ne") cond = numOk ? cn !== vn : xtNormKey(cell) !== xtNormKey(params.ifVal);
+        else if (params.ifOp === "gt") cond = numOk && cn > vn;
+        else if (params.ifOp === "lt") cond = numOk && cn < vn;
+        else if (params.ifOp === "gte") cond = numOk && cn >= vn;
+        else cond = numOk && cn <= vn;
+        val = cond ? params.ifTrue : params.ifFalse;
+      } else {
+        const a = row[params.colA], b = row[params.colB];
+        const an = Number(String(a).replace(/,/g, "")), bn = Number(String(b).replace(/,/g, ""));
+        if (params.kind === "concat") val = String(a ?? "") + (params.sep || "") + String(b ?? "");
+        else if (!Number.isFinite(an) || !Number.isFinite(bn)) val = "";
+        else if (params.kind === "add") val = an + bn;
+        else if (params.kind === "sub") val = an - bn;
+        else if (params.kind === "mul") val = an * bn;
+        else val = bn !== 0 ? an / bn : "";
+      }
       row[newCol] = val;
     }
     xtRenderGrid();
