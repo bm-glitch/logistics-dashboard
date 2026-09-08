@@ -394,6 +394,13 @@
     color: var(--text-muted); background: var(--surface-alt); border: 1px solid var(--border);
     border-radius: 5px; padding: 0 5px; white-space: nowrap;
   }
+  /* 재고 부족 — 완료건에 묻히면 안 되는 정보라 목록에서 항상 눈에 띄게 표시.
+     CX 처리가 끝나면(cxStatus=완료) 더 이상 강조할 필요가 없어서 목록 배지만 사라집니다. */
+  .shortage-tag {
+    display: inline-block; margin-left: 6px; font-size: 10.5px; font-weight: 700;
+    color: var(--danger); background: var(--danger-soft); border-radius: 5px; padding: 1px 6px; white-space: nowrap;
+  }
+  .shortage-tag.checkfail { color: var(--text-muted); background: var(--surface-alt); border: 1px solid var(--border); }
   .more-tag { color: var(--text-muted); font-size: 12px; }
   .stockpill {
     display: inline-block; margin-left: 6px; font-size: 10.5px; font-weight: 700;
@@ -1015,6 +1022,11 @@
       <h1 class="pagetitle" id="pageTitle">대시보드</h1>
       <div class="pagesub" id="pageSub">슬랙으로 들어온 업무 요청을 놓치지 않고 한눈에 확인해요</div>
 
+      <!-- 화면이 바뀌어도(요청서 작성 → 전체 요청 등) 계속 보여야 하는 배너라 특정 화면 안에 두지 않고
+           여기(모든 화면 공통 영역)에 둡니다. 예전엔 요청서 작성 화면 안에 있어서, 등록 직후
+           '전체 요청'으로 넘어가면 부모가 통째로 숨겨져서 배너도 같이 안 보이는 문제가 있었습니다. -->
+      <div id="formBanner"></div>
+
       <div class="stats">
         <div class="stat total">
           <div class="badge-icon"><svg class="icon" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h5"/></svg></div>
@@ -1058,8 +1070,6 @@
       <!-- ============ 요청서 작성 ============ -->
       <div class="formpage" id="formSection" style="display:none;">
        <div class="formwrap">
-        <div id="formBanner"></div>
-
         <div class="fcard">
           <div class="fsec-head">
             <span class="step num">1</span>
@@ -2018,6 +2028,30 @@
     </table>`;
   }
 
+  /** 상세보기의 '재고 부족 · CX 대응' 카드. 재고부족·확인실패가 아니면 아무것도 안 그립니다.
+   *  요청자도 CX 처리 여부를 볼 수 있어야 해서 항상 노출하고, 상태 변경 버튼도 여기서 바로 누를 수 있게 합니다. */
+  function cxCardHtml(r) {
+    if (r.stockStatus !== "재고부족" && r.stockStatus !== "확인실패") return "";
+    const warn = shortageWarningHtml(r).replace(/margin-top:10px;/, "");
+    if (r.stockStatus === "확인실패") {
+      return `<div class="dcard pad"><div class="dcard-title">❔ 재고 확인 실패</div>${warn}</div>`;
+    }
+    const pillColor = r.cxStatus === "완료" ? "var(--good)" : r.cxStatus === "확인중" ? "var(--warn)" : "var(--danger)";
+    const cxActions = [];
+    if (r.cxStatus !== "확인중") cxActions.push(`<button type="button" class="btn ghost small" data-cx="확인중" data-id="${esc(r.requestId)}">확인중으로 표시</button>`);
+    if (r.cxStatus !== "완료") cxActions.push(`<button type="button" class="btn small" data-cx="완료" data-id="${esc(r.requestId)}" style="background:var(--good);color:#fff;border-color:var(--good);">취소/안내 완료 처리</button>`);
+    return `<div class="dcard pad">
+      <div class="dcard-title">⚠️ 재고 부족 · CX 대응</div>
+      ${warn}
+      <div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:12px;color:var(--text-muted);">CX 처리 상태</span>
+        <span style="font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 10px;color:#fff;background:${pillColor};">${esc(r.cxStatus || "확인전")}</span>
+        ${cxActions.join("")}
+      </div>
+      ${r.cxHandledBy ? `<div style="margin-top:8px;font-size:12px;color:var(--text-muted);">처리자 ${esc(r.cxHandledBy)}${r.cxHandledAt ? " · " + esc(r.cxHandledAt) : ""}${r.cxMemo ? " · " + esc(r.cxMemo) : ""}</div>` : ""}
+    </div>`;
+  }
+
   function detailHtml(r) {
     const v = (s) => s ? esc(s) : '<span class="v empty">-</span>';
     const num = (s) => s ? `<span class="num">${esc(s)}</span>` : '<span class="v empty">-</span>';
@@ -2039,6 +2073,8 @@
         <div class="dcard-title">📦 상품 정보</div>
         ${productTableHtml(r)}
       </div>
+
+      ${cxCardHtml(r)}
 
       ${(safety || r.memo) ? `<div class="dcard pad">
         <div class="dcard-title">🗒 물류 메모 (특이사항)
@@ -3000,7 +3036,7 @@
       return `<tr class="mainrow${open ? " open" : ""}" data-id="${esc(r.requestId)}" tabindex="0" aria-expanded="${open}">
         <td><input type="checkbox" class="rowSelect" data-id="${esc(r.requestId)}" title="이 주문건 선택" ${selected.has(r.requestId) ? "checked" : ""} style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer;vertical-align:middle;"></td>
         <td class="num reqidcell">
-          <span class="expandmark"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span>${esc(r.requestId) || "-"}${r.source === "local" ? '<span class="local-tag" title="이 브라우저에만 저장된 항목이에요">로컬</span>' : ""}
+          <span class="expandmark"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span>${esc(r.requestId) || "-"}${r.source === "local" ? '<span class="local-tag" title="이 브라우저에만 저장된 항목이에요">로컬</span>' : ""}${shortageTagHtml(r)}
         </td>
         <td class="num col-extra">${esc(r.requestDate) || "-"}</td>
         <td>${esc(r.team) || "-"}</td>
@@ -3533,12 +3569,57 @@
    * 이어서 등록하고 싶으면 링크로 폼을 다시 열 수 있게 합니다 — 예전 팝업의 '주문서 유지'와 동일한 결과지만,
    * 아무 것도 안 누르고 넘어가도 폼이 비어 있으니 이중등록 위험이 없습니다.
    */
+  /** 목록 행에 붙는 재고 부족 배지. CX 처리가 끝났으면 더 강조할 필요가 없어서 숨깁니다. */
+  function shortageTagHtml(r) {
+    if (!r) return "";
+    if (r.stockStatus === "확인실패") return `<span class="shortage-tag checkfail" title="이지어드민 재고 조회 실패 — 재고가 없다는 뜻이 아니라 재확인이 필요해요">❔ 재고확인실패</span>`;
+    if (r.stockStatus === "재고부족" && r.cxStatus !== "완료") {
+      return `<span class="shortage-tag" title="부족수량 ${r.shortageQty ?? 0}개 · CX 상태: ${esc(r.cxStatus || "확인전")}">⚠️ 재고부족 ${r.shortageQty ?? 0}개${r.cxStatus === "확인중" ? " · CX확인중" : ""}</span>`;
+    }
+    return "";
+  }
+
+  /** 상품별 재고 대조 결과(JSON)를 파싱합니다. 실패하거나 없으면 빈 배열. */
+  function parseStockCheck(r) {
+    if (!r || !r.stockCheckJson) return [];
+    try { const j = JSON.parse(r.stockCheckJson); return Array.isArray(j) ? j : []; } catch (e) { return []; }
+  }
+
+  /** 요청서 등록 직후·목록·상세에서 공통으로 쓰는 재고 부족 경고 영역.
+   *  '재고가 없습니다' 한 줄이 아니라 요청수량/출고가능수량/부족수량 3가지를 항상 구분해서 보여줍니다. */
+  function shortageWarningHtml(r) {
+    if (!r) return "";
+    if (r.stockStatus === "확인실패") {
+      return `<div style="margin-top:10px;padding:10px 12px;background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px;font-size:13px;line-height:1.6;">
+        ⚠️ <strong>재고 확인에 실패했어요.</strong> 이지어드민 조회가 안 돼서 실제 재고 부족인지 확인하지 못했습니다(재고가 없다는 뜻이 아니에요).
+        잠시 후 다시 확인해 주세요.
+      </div>`;
+    }
+    if (r.stockStatus !== "재고부족") return "";
+    const lines = parseStockCheck(r).filter(p => (p.shortage || 0) > 0);
+    if (!lines.length) return "";
+    const rows = lines.map(p => `
+      <div style="margin-top:8px;padding:8px 10px;background:var(--surface);border-radius:6px;">
+        <div style="font-weight:700;">${esc(p.name || "")}${p.option ? ` <span style="font-weight:400;color:var(--text-muted);">(${esc(p.option)})</span>` : ""}</div>
+        <div style="margin-top:2px;">요청수량 <b>${p.qty ?? "-"}개</b> · 출고가능수량 <b>${p.checkFailed ? "확인불가" : (p.available ?? 0)}개</b> · <span style="color:var(--danger);font-weight:700;">재고부족수량 ${p.shortage}개</span></div>
+      </div>`).join("");
+    const total = lines.reduce((a, p) => a + (p.shortage || 0), 0);
+    return `<div style="margin-top:10px;padding:10px 12px;background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px;font-size:13px;line-height:1.6;">
+      ⚠️ <strong>재고 부족 상품이 있습니다.</strong> (부족수량 합계 ${total}개)
+      ${rows}
+      <div style="margin-top:8px;">부족 수량만큼은 출고가 어려워요 — <strong>취소 처리 및 고객 안내가 필요</strong>합니다. CX팀(이성화)에게 자동으로 알림을 보냈어요.</div>
+    </div>`;
+  }
+
   function showPostSubmitBanner(sr) {
+    const r = DATA.find(x => x.requestId === sr);
+    const shortageHtml = shortageWarningHtml(r);
     showBanner(
       `<span>✅ <strong>${esc(sr)}</strong> 요청서가 등록됐어요. `
       + `<a href="#" id="continueSameOrderLink" style="color:var(--accent);text-decoration:underline;font-weight:700;">같은 조건으로 이어서 작성</a>`
-      + ` · <a href="#" id="copyJustSubmittedLink" style="color:var(--accent);text-decoration:underline;font-weight:700;">슬랙용 텍스트 복사</a></span>`,
-      "ok"
+      + ` · <a href="#" id="copyJustSubmittedLink" style="color:var(--accent);text-decoration:underline;font-weight:700;">슬랙용 텍스트 복사</a></span>`
+      + shortageHtml,
+      shortageHtml ? "warn" : "ok"
     );
     const contLink = document.getElementById("continueSameOrderLink");
     if (contLink) contLink.addEventListener("click", (e) => {
@@ -3793,8 +3874,30 @@
       const input = document.querySelector(`.linkSeqInput[data-id="${CSS.escape(id)}"]`);
       const seq = input ? input.value : prompt("이지어드민 관리번호를 입력해 주세요");
       if (seq != null) linkOrder(id, seq);
+      return;
     }
+
+    const cxBtn = e.target.closest("[data-cx]");
+    if (cxBtn) { setCxStatus(cxBtn.dataset.id, cxBtn.dataset.cx); return; }
   });
+
+  /** 재고 부족 건의 CX 처리 상태를 바꿉니다. 담당자·메모는 기존 '변경자·사유' 창을 그대로 재사용해요. */
+  async function setCxStatus(sr, cxStatus) {
+    const info = await askChange(`${sr} CX ${cxStatus} 처리`);
+    if (!info) return;
+    try {
+      const res = await fetch(API_CREATE + "/" + encodeURIComponent(sr) + "/cx-status", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cxStatus, handledBy: info.actor, memo: info.reason }),
+      });
+      if (!res.ok) throw new Error("서버 응답 " + res.status);
+      await fetchFromServer();
+      showBanner(`<span>${esc(sr)} CX 처리 상태를 "${esc(cxStatus)}"로 바꿨어요.</span>`, "ok");
+      setTimeout(() => showBanner(""), 3000);
+    } catch (e) {
+      alert("처리 상태 저장에 실패했어요: " + (e.message || "연결 오류"));
+    }
+  }
 
   // [물류 메모] 요청건마다 특이사항(발주 진행상황 등)을 수기로 적어 저장 → 다른 팀도 볼 수 있게 서버에 보관
   async function openMemo(sr){
@@ -6293,6 +6396,27 @@
     setView("form");
     history.replaceState(null, "", window.location.pathname + window.location.search);
   }
+
+  // 재고 부족 CX 알림 Slack 메시지의 "해당 요청 바로 보기" 링크(?sr=SR-0000)로 들어온 경우,
+  // 데이터가 준비되는 대로 전체 요청 화면에서 그 건을 검색해 펼쳐서 보여줍니다.
+  (function openFromSrParam() {
+    const srParam = new URLSearchParams(window.location.search).get("sr");
+    if (!srParam) return;
+    history.replaceState(null, "", window.location.pathname + window.location.hash);
+    fetchFromServer().then(() => {
+      setView("all");
+      viewMode = "list";           // 캘린더/칸반이 기본이면 목록의 펼친 상세가 안 보이니 목록으로 고정
+      updateViewModeButtons();
+      searchTerm = srParam;
+      document.getElementById("searchInput").value = srParam;
+      expanded.add(srParam);
+      renderTable();
+      setTimeout(() => {
+        const row = document.querySelector(`tr.mainrow[data-id="${CSS.escape(srParam)}"]`);
+        if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 200);
+    });
+  })();
 
   // 안전장치: 화면이 다시 그려지는 타이밍과 상관없이, 3초마다 강제로 배지를 다시 칠합니다.
   setInterval(() => {
