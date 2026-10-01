@@ -4425,10 +4425,112 @@
   const RE_REGION = /(특별시|광역시|특별자치시|특별자치도|서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주|[가-힣]{2}도)/;
   const RE_KRNAME = /^[가-힣]{2,4}$/;
 
+  /* =========================================================================
+   * 비밀번호로 암호화된 엑셀 열기 — 거래처가 보안을 위해 암호를 걸어 보내는 파일을
+   * 브라우저(xlsx.js)는 그대로 못 읽습니다. 암호 걸린 파일이면 화면에서 비밀번호를
+   * 입력받아 서버(Apache POI)로 복호화한 뒤, 복호화된 바이트로 다시 읽습니다.
+   * ======================================================================= */
+  /** CFB(OLE) 매직 바이트로 "암호 걸린 엑셀"인지 판별합니다(zip 기반 평문 xlsx는 PK로 시작). */
+  function isEncryptedXlsxBuf(buf) {
+    const b = new Uint8Array(buf);
+    return b.length > 8 && b[0] === 0xD0 && b[1] === 0xCF && b[2] === 0x11 && b[3] === 0xE0 &&
+           b[4] === 0xA1 && b[5] === 0xB1 && b[6] === 0x1A && b[7] === 0xE1;
+  }
+  /** 암호 걸린 엑셀 바이트를 서버로 보내 복호화된 바이트를 받아옵니다. */
+  async function decryptXlsxBuf(buf, password) {
+    const bytes = new Uint8Array(buf);
+    let bin = "";
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    const res = await fetch(API_BASE + "/api/excel/decrypt", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fileBase64: btoa(bin), password }),
+    });
+    if (!res.ok) throw new Error("서버 응답 " + res.status);
+    const out = await res.json();
+    if (!out.ok) throw new Error(out.message || "비밀번호가 올바르지 않아요.");
+    const outBin = atob(out.fileBase64);
+    const arr = new Uint8Array(outBin.length);
+    for (let i = 0; i < outBin.length; i++) arr[i] = outBin.charCodeAt(i);
+    return arr.buffer;
+  }
+  // 이번 세션에서 마지막으로 성공한 비밀번호 — 같은 거래처 파일을 여러 개 올릴 때 재입력을 줄여줍니다.
+  const LAST_EXCEL_PASSWORD = { value: "1234" };
+  /** 비밀번호 입력 배너. 취소하면 null을 돌려줍니다. */
+  function askExcelPassword(fileName, prefill, errMsg) {
+    return new Promise((resolve) => {
+      let ov = document.getElementById("excelPwModal");
+      if (!ov) {
+        ov = document.createElement("div");
+        ov.id = "excelPwModal";
+        ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;";
+        ov.innerHTML = `
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:400px;width:100%;padding:20px;box-shadow:0 12px 44px rgba(0,0,0,.22);">
+            <div style="font-size:16px;font-weight:700;margin-bottom:4px;color:var(--text);">🔒 비밀번호로 잠긴 엑셀 파일</div>
+            <div id="pwFileName" style="font-size:13px;color:var(--text-muted);margin-bottom:14px;line-height:1.5;word-break:break-all;"></div>
+            <label style="font-size:12px;font-weight:600;color:var(--text-muted);">비밀번호</label>
+            <input id="pwInput" type="text" placeholder="예: 1234" style="width:100%;margin:4px 0 4px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface-alt,#fff);color:var(--text);box-sizing:border-box;">
+            <div id="pwErr" style="font-size:12px;color:var(--danger);min-height:16px;margin:4px 0 8px;"></div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+              <button id="pwCancel" type="button" class="btn ghost">취소</button>
+              <button id="pwOk" type="button" class="btn primary">확인</button>
+            </div>
+          </div>`;
+        document.body.appendChild(ov);
+      }
+      const nameEl = ov.querySelector("#pwFileName");
+      const input = ov.querySelector("#pwInput");
+      const err = ov.querySelector("#pwErr");
+      nameEl.textContent = fileName + " — 거래처가 비밀번호로 보호해서 보낸 파일이에요. 비밀번호를 입력해 주세요.";
+      input.value = prefill || "";
+      err.textContent = errMsg || "";
+      ov.style.display = "flex";
+      setTimeout(() => { input.focus(); input.select(); }, 30);
+
+      const cleanup = () => {
+        okBtn.removeEventListener("click", onOk);
+        cancelBtn.removeEventListener("click", onCancel);
+        ov.removeEventListener("keydown", onKey);
+      };
+      const close = (result) => { ov.style.display = "none"; cleanup(); resolve(result); };
+      const onOk = () => {
+        const v = input.value.trim();
+        if (!v) { err.textContent = "비밀번호를 입력해 주세요."; input.focus(); return; }
+        close(v);
+      };
+      const onCancel = () => close(null);
+      const onKey = (e) => {
+        if (e.key === "Enter") { e.preventDefault(); onOk(); }
+        else if (e.key === "Escape") { e.preventDefault(); onCancel(); }
+      };
+      const okBtn = ov.querySelector("#pwOk");
+      const cancelBtn = ov.querySelector("#pwCancel");
+      okBtn.addEventListener("click", onOk);
+      cancelBtn.addEventListener("click", onCancel);
+      ov.addEventListener("keydown", onKey);
+    });
+  }
+  /** 엑셀을 읽되, 암호가 걸려 있으면 화면에서 입력받아 복호화한 뒤 읽습니다. */
+  async function readWorkbookOrPrompt(buf, fileName) {
+    if (!isEncryptedXlsxBuf(buf)) return XLSX.read(buf, { type: "array" });
+    let pwd = LAST_EXCEL_PASSWORD.value;
+    let err = "";
+    for (;;) {
+      pwd = await askExcelPassword(fileName, pwd, err);
+      if (pwd == null) throw new Error(fileName + ": 비밀번호를 입력하지 않아 열 수 없어요.");
+      try {
+        const decrypted = await decryptXlsxBuf(buf, pwd);
+        LAST_EXCEL_PASSWORD.value = pwd;
+        return XLSX.read(decrypted, { type: "array" });
+      } catch (e) {
+        err = e.message || "비밀번호가 올바르지 않아요. 다시 입력해 주세요.";
+      }
+    }
+  }
+
   /** 엑셀 첫 시트를 2차원 문자열 배열로 읽습니다. (병합셀은 좌상단에만 값이 들어옵니다) */
   async function readGrid(file) {
     const buf = await file.arrayBuffer();
-    const wb = XLSX.read(buf, { type: "array" });
+    const wb = await readWorkbookOrPrompt(buf, file.name);
     const ws = wb.Sheets[wb.SheetNames[0]];
     // range: 0 을 줘야 시트 "첫 줄"부터 읽습니다.
     // (빈 줄로 시작하는 양식은 기본값이 그 줄을 건너뛰어, 제목줄 18행을 17행이라고 잘못 안내합니다)
@@ -5273,10 +5375,10 @@
    *  · 수량은 출고수량 > 수주수량 > 수량 순으로 인식
    * ======================================================================= */
   const IMPORT_ALIASES = {
-    name:   ["수령자이름","수령자 이름","수령자명","수령인","수령인명","수취인","수취인명","받는분","받는사람","받으실분","고객명","성명","담당자명","담당자","받는이","수하인","수하인명"],
+    name:   ["수령자이름","수령자 이름","수령자명","수령인","수령인명","수취인","수취인명","받는분","받는사람","받으실분","고객명","성명","담당자명","담당자","받는이","수하인","수하인명","배송_이름","배송이름"],
     store:  ["매장","매장명","점포명","점명","지점","지점명","판매처","거래처","거래처명","납품처","배송처","도착지","출고처","점포"],
     phoneMobile: ["핸드폰","휴대폰","수령인핸드폰번호","수취인핸드폰번호","수취인휴대폰","담당자핸드폰","고객핸드폰","핸폰","휴대전화","모바일"],
-    phone:  ["수령자연락처","수령자 연락처","수령인연락처","수령인전화번호","연락처","전화번호","전화","수취인연락처","수취인전화번호","받는분연락처","매장연락처","담당자연락처"],
+    phone:  ["수령자연락처","수령자 연락처","수령인연락처","수령인전화번호","연락처","전화번호","전화","수취인연락처","수취인전화번호","받는분연락처","매장연락처","담당자연락처","배송_연락처","배송연락처"],
     zip:    ["수령자우편번호","우편번호","우편","zip"],
     addr:   ["수령자주소","수령자 주소","수령인주소","주소","배송지","배송주소","받는주소","수취인주소","도착지주소","매장주소","담당자주소"],
     addr2:  ["상세주소","나머지주소","상세 주소","상세주소2","참고주소"],
@@ -5319,7 +5421,7 @@
    *  → [{name,phone,address,message,storeMatched,products:[{code,name,option,qty}]}] */
   async function parseBulkFile(file) {
     const buf = await file.arrayBuffer();
-    const wb = XLSX.read(buf, { type: "array" });
+    const wb = await readWorkbookOrPrompt(buf, file.name);
     const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "" });
     if (!rows.length) throw new Error(file.name + ": 빈 파일이에요.");
 
