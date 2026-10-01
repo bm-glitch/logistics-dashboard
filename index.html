@@ -385,6 +385,11 @@
   .expandmark svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.15s ease; }
   tr.mainrow.open .expandmark { color: var(--accent); }
   tr.mainrow.open .expandmark svg { transform: rotate(90deg); }
+  tr.mainrow.batchgroup td { background: var(--accent-soft); font-weight: 600; }
+  tr.mainrow.batchgroup:hover td { background: var(--accent-soft); filter: brightness(0.97); }
+  tr.mainrow.batchmember td { background: var(--surface-alt); }
+  tr.mainrow.batchmember:hover td { background: var(--surface-alt); filter: brightness(0.97); }
+  tr.mainrow.batchmember .reqidcell { padding-left: 22px; }
   .missing-tag {
     display: inline-block; margin-left: 6px; font-size: 10.5px; font-weight: 700;
     color: var(--info); background: var(--info-soft); border-radius: 5px; padding: 1px 6px; white-space: nowrap;
@@ -1352,6 +1357,7 @@
         <div class="tablecard-head">
           <span class="title" id="tableTitle">최근 요청</span>
           <button class="link" id="clearTodayFilter" style="display:none;">&larr; 대시보드로 돌아가기</button>
+          <button class="link" id="clearBatchFilter" style="display:none;">&larr; 묶음 보기 해제</button>
           <div class="tabs" id="statusTabs">
             <button class="tab active" data-status="open" title="아직 처리가 끝나지 않은 건만 모아 봐요 (대기 + 진행중)">진행 필요<span class="tbadge warn" id="tabOpenCount">0</span></button>
             <button class="tab" data-status="pending">대기<span class="tbadge" id="tabPendingCount">0</span></button>
@@ -1579,6 +1585,19 @@
       trackingNotified: !!r.trackingNotified,
       requestType: r.requestType || "출고요청",
       memo: r.memo || "",              // 물류팀 특이사항 메모(진행상황 모니터링용)
+      ezadminSeq: r.ezadminSeq || "",
+      // ---- 묶음 등록 ----
+      batchId: r.batchId || null,
+      batchLabel: r.batchLabel || "",
+      // ---- 재고 부족 대응 ----
+      stockStatus: r.stockStatus || null,
+      stockCheckJson: r.stockCheckJson || "[]",
+      shortageQty: r.shortageQty ?? null,
+      cxStatus: r.cxStatus || null,
+      cxNotificationSent: !!r.cxNotificationSent,
+      cxHandledBy: r.cxHandledBy || "",
+      cxHandledAt: r.cxHandledAt || "",
+      cxMemo: r.cxMemo || "",
       source: source,
     };
   }
@@ -1767,12 +1786,22 @@
   let _pageSig = "";            // 필터가 바뀌면 1페이지로 되돌리기 위한 비교값
   let calCur = null;            // 캘린더가 보고 있는 달 {y, m}
   let calByDate = {};           // 캘린더에 지금 표시된 날짜별 요청 목록(필터 반영) — '+N건 더' 팝업이 사용
+  // 묶음 등록(일괄 업로드) — 목록/칸반에서 "📦 묶음 N건"으로 접어서 보여줄 때 씁니다.
+  let activeBatchId = null;     // 상세보기 '같은 묶음 보기'로 특정 묶음만 볼 때
+  const expandedBatches = new Set();   // 목록에서 펼쳐둔 묶음(batchId)
   const expanded = new Set();
   const selected = new Set();   // 엑셀로 뽑을 주문건(요청번호) 선택 목록
 
   // 선택 상태 UI(전체선택 체크, 선택 개수, '선택 엑셀' 버튼 활성화) 갱신
   function updateSelectionUI() {
-    const visibleIds = [...document.querySelectorAll("#tableBody tr.mainrow")].map(tr => tr.dataset.id);
+    // 묶음 요약 줄은 접혀 있을 때만 멤버 id들을 대신 세고(펼쳐져 있으면 멤버가 자기 행으로 따로 잡힘),
+    // 이중 집계를 막습니다.
+    const visibleIds = [...document.querySelectorAll("#tableBody tr.mainrow")].flatMap(tr => {
+      if (tr.classList.contains("batchgroup")) {
+        return tr.classList.contains("open") ? [] : (tr.dataset.members || "").split(",").filter(Boolean);
+      }
+      return [tr.dataset.id];
+    });
     const selCountEl = document.getElementById("selCount");
     const btn = document.getElementById("exportSelectedBtn");
     if (selCountEl) selCountEl.textContent = selected.size;
@@ -1829,6 +1858,14 @@
       all.checked = selectableVisible > 0 && selectedVisible === selectableVisible;
       all.indeterminate = selectedVisible > 0 && selectedVisible < selectableVisible;
     }
+    // 묶음 체크박스 — 펼쳐진 묶음의 멤버를 개별로 체크/해제해도 묶음 체크박스가 바로 맞춰지게.
+    document.querySelectorAll("#tableBody .batchSelect").forEach(cb => {
+      const tr = cb.closest("tr.batchgroup");
+      const ids = (tr && tr.dataset.members ? tr.dataset.members.split(",") : []).filter(Boolean);
+      const selCount = ids.filter(id => selected.has(id)).length;
+      cb.checked = ids.length > 0 && selCount === ids.length;
+      cb.indeterminate = selCount > 0 && selCount < ids.length;
+    });
   }
 
   // 안전재고·취소 내역처럼 지표 카드를 아예 안 쓰는 화면에서는, 다른 이유로 focus mode가
@@ -2065,6 +2102,11 @@
           ${r.source === "local" ? `<button type="button" class="btn danger small" data-del="${esc(r.requestId)}">삭제</button>` : ""}
         </span>
       </div>
+
+      ${r.batchId ? `<div style="margin:-6px 0 10px;font-size:12.5px;color:var(--text-muted);">
+        📦 이 건은 묶음 <b>${DATA.filter(x => x.batchId === r.batchId).length}건</b> 중 1건이에요
+        <button type="button" class="btn ghost small" data-viewbatch="${esc(r.batchId)}" style="margin-left:6px;">같은 묶음 보기</button>
+      </div>` : ""}
 
       <div class="detailgrid" data-detailgrid="${esc(r.requestId)}">
       <div>
@@ -2681,12 +2723,19 @@
     } else { fallback(); }
   }
 
+  // 검색어·요청자·기간·묶음보기 중 하나라도 걸려 있으면 "찾는 중"으로 봅니다.
+  // (상태 탭 필터를 건너뛰고, 목록에서도 묶음을 접지 않고 낱개로 펼쳐서 보여줍니다 — 찾는 게 최우선)
+  function isSearchingNow() {
+    return !!(searchTerm || activeRequester || dateRangeFrom || dateRangeTo || activeBatchId);
+  }
+
   function getFilteredRows() {
     let rows = DATA.slice();
     // 검색어·요청자·기간으로 찾는 중이면, "진행 필요/대기/진행중" 탭에 걸려서
     // 완료건이 안 보이는 일이 없도록 상태 탭 필터는 건너뜁니다 — 찾는 게 최우선.
     // (취소 내역/안전재고/완료 내역처럼 화면 자체가 다른 경우는 그대로 유지합니다)
-    const searching = !!(searchTerm || activeRequester || dateRangeFrom || dateRangeTo);
+    const searching = isSearchingNow();
+    if (activeBatchId) rows = rows.filter(r => r.batchId === activeBatchId);
     if (activeView === "cancelled") {
       // 취소 내역 화면 — 취소된 건만 모아서 보여줍니다. (상태 탭 필터는 적용하지 않음)
       rows = rows.filter(r => r.status === "cancelled");
@@ -2745,6 +2794,26 @@
       return (a.desiredDate || "9999").localeCompare(b.desiredDate || "9999");
     });
     return rows;
+  }
+
+  /** 같은 batchId를 가진 행이 2건 이상이면 하나의 묶음 그룹으로 합칩니다.
+   *  (순서는 정렬 결과에서 각 묶음의 첫 등장 위치를 그대로 씁니다 — 찾는 중일 땐 묶지 않습니다) */
+  function groupBatches(rows) {
+    if (isSearchingNow()) return rows;
+    const groups = new Map();
+    const out = [];
+    for (const r of rows) {
+      if (!r.batchId) { out.push(r); continue; }
+      let g = groups.get(r.batchId);
+      if (!g) {
+        g = { _isBatchGroup: true, batchId: r.batchId, batchLabel: r.batchLabel, members: [] };
+        groups.set(r.batchId, g);
+        out.push(g);
+      }
+      g.members.push(r);
+    }
+    // 지금 보이는 멤버가 1건뿐이면 묶을 이유가 없으니 낱개 행으로 풀어서 보여줍니다.
+    return out.flatMap(x => (x._isBatchGroup && x.members.length < 2) ? x.members : [x]);
   }
 
   // ===== 캘린더 보기 =====
@@ -2881,10 +2950,22 @@
     ];
     let html = `<div class="kanban">`;
     cols.forEach(col => {
-      const list = rows.filter(r => r.status === col.key);
-      html += `<div class="kcol"><h4>${col.label} <span class="kcount">${list.length}</span></h4>`;
+      // 한 칸(상태) 안에서는 멤버 상태가 전부 같으니, 같은 묶음끼리는 카드 하나로 접어 보여줍니다.
+      const list = groupBatches(rows.filter(r => r.status === col.key));
+      html += `<div class="kcol"><h4>${col.label} <span class="kcount">${list.reduce((a,x)=>a+(x._isBatchGroup?x.members.length:1),0)}</span></h4>`;
       if(!list.length) html += `<div class="kempty">없음</div>`;
-      list.forEach(r => {
+      list.forEach(item => {
+        if (item._isBatchGroup) {
+          const g = item, members = g.members;
+          const repr = members[0];
+          html += `<div class="kcard ${col.cls}" data-openbatch="${esc(g.batchId)}" style="border-style:dashed;">
+            <div class="ksr">📦 묶음 ${members.length}건</div>
+            <div class="kitem">${esc(g.batchLabel || productSummary(repr)) || "-"}</div>
+            <div class="kmeta"><span>${esc(repr.team) || "-"} · ${esc(repr.requester) || "-"}</span><span>🚚 ${esc(repr.desiredDate) || "-"}</span></div>
+          </div>`;
+          return;
+        }
+        const r = item;
         html += `<div class="kcard ${col.cls}" data-openid="${esc(r.requestId)}">
           <div class="ksr">${esc(r.requestId)}</div>
           <div class="kitem">${esc(productSummary(r)) || "-"}</div>
@@ -2896,6 +2977,45 @@
     html += `</div>`;
     box.innerHTML = html;
     box.querySelectorAll("[data-openid]").forEach(el => el.addEventListener("click", () => openRequestDetail(el.dataset.openid)));
+    box.querySelectorAll("[data-openbatch]").forEach(el => el.addEventListener("click", () => openBatchList(el.dataset.openbatch)));
+  }
+
+  // 칸반 묶음 카드를 누르면 그 묶음 멤버들을 목록으로 보여주는 팝업. 각 줄을 누르면 그 요청 상세가 열립니다.
+  function openBatchList(batchId){
+    const list = DATA.filter(r => r.batchId === batchId);
+    if (!list.length) return;
+    let ov = document.getElementById("batchModal");
+    if (!ov) {
+      ov = document.createElement("div");
+      ov.id = "batchModal";
+      ov.className = "reqmodal-overlay";
+      ov.innerHTML = '<div class="reqmodal-panel" id="batchModalPanel"></div>';
+      document.body.appendChild(ov);
+      ov.addEventListener("click", e => { if (e.target.id === "batchModal") ov.style.display = "none"; });
+      document.addEventListener("keydown", e => { if (e.key === "Escape") ov.style.display = "none"; });
+    }
+    const panel = document.getElementById("batchModalPanel");
+    const label = list[0].batchLabel || "묶음 등록";
+    const rowHtmlFn = (r) => `
+      <div class="dayrow" data-openid="${esc(r.requestId)}" tabindex="0">
+        <span class="statuspill ${r.status}">${STATUS_LABEL[r.status] || r.status}</span>
+        <span class="dayrow-id">${esc(r.requestId)}</span>
+        <span class="dayrow-sum" title="${esc(r.receiver.name || "")}">${esc(r.receiver.name) || "(수령자 미상)"}</span>
+        <span class="dayrow-qty num">${totalQty(r) ?? "-"}개</span>
+      </div>`;
+    panel.innerHTML =
+      `<div class="reqmodal-head">
+        <strong style="margin-right:auto;font-size:15px;color:var(--text);">📦 ${esc(label)} · ${list.length}건</strong>
+        <button type="button" class="btn ghost small" id="bmClose">닫기 ✕</button>
+      </div>
+      <div class="daylist">${list.map(rowHtmlFn).join("")}</div>`;
+    ov.style.display = "flex";
+    panel.querySelector("#bmClose").onclick = () => { ov.style.display = "none"; };
+    panel.querySelectorAll("[data-openid]").forEach(el => {
+      const open = () => { ov.style.display = "none"; openRequestModal(el.dataset.openid); };
+      el.addEventListener("click", open);
+      el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
+    });
   }
 
   // 캘린더/칸반에서 항목을 누르면 → 그 요청 "한 건만" 팝업으로 엽니다. (전체 목록으로 안 바뀜)
@@ -2931,6 +3051,7 @@
     panel.querySelector("#rmClose").onclick = closeReqModal;
     panel.querySelectorAll("[data-copy]").forEach(b => b.onclick = () => { const rr = DATA.find(x => x.requestId === b.dataset.copy); if(rr) copyText(slackText(rr), b); });
     panel.querySelectorAll("[data-memo]").forEach(b => b.onclick = () => openMemo(b.dataset.memo));
+    panel.querySelectorAll("[data-viewbatch]").forEach(b => b.onclick = () => viewBatch(b.dataset.viewbatch));
     panel.querySelectorAll(".linkOrderBtn").forEach(b => b.onclick = () => {
       const input = panel.querySelector(`.linkSeqInput[data-id="${CSS.escape(b.dataset.id)}"]`);
       const seq = input ? input.value : prompt("이지어드민 관리번호를 입력해 주세요");
@@ -3000,40 +3121,13 @@
     });
   }
 
-  function renderTable() {
-    const allRows = getFilteredRows();
-    renderStatusTabCounts();
-
-    // 보기 방식(목록/캘린더/칸반) 전환 — 같은 필터 결과(rows)를 다른 모양으로 그립니다.
-    const listView = document.getElementById("listView");
-    const calView = document.getElementById("calendarView");
-    const kanView = document.getElementById("kanbanView");
-    const pagerEl = document.getElementById("pager");
-    if (listView) listView.style.display = viewMode === "list" ? "" : "none";
-    if (calView) calView.style.display = viewMode === "calendar" ? "" : "none";
-    if (kanView) kanView.style.display = viewMode === "kanban" ? "" : "none";
-    if (pagerEl) pagerEl.style.display = "none";
-    if (viewMode === "calendar") { renderCalendar(allRows); return; }
-    if (viewMode === "kanban") { renderKanban(allRows); return; }
-
-    // ④ 페이지 나누기 — 한 페이지 30건(기본). 필터가 바뀌면 자동으로 1페이지로 돌아갑니다.
-    const sig = [activeView, activeStatus, activeTeam, activeAssignee, activeChannel, activeRequester, dateRangeField, dateRangeFrom, dateRangeTo, todayOnly, searchTerm, PAGE_SIZE].join("§");
-    if (sig !== _pageSig) { _pageSig = sig; PAGE = 1; }
-    const totalPages = Math.max(1, Math.ceil(allRows.length / PAGE_SIZE));
-    if (PAGE > totalPages) PAGE = totalPages;
-    if (PAGE < 1) PAGE = 1;
-    const startIdx = (PAGE - 1) * PAGE_SIZE;
-    const rows = allRows.slice(startIdx, startIdx + PAGE_SIZE);
-    renderPager(allRows.length, totalPages, startIdx, rows.length);
-
-    const body = document.getElementById("tableBody");
-    document.getElementById("tableEmpty").style.display = allRows.length ? "none" : "";
-    body.innerHTML = rows.map(r => {
-      const open = expanded.has(r.requestId);
-      const summary = productSummary(r);
-      const qty = totalQty(r);
-      const showMissing = hasMissingInfo(r) && r.status !== "done";
-      return `<tr class="mainrow${open ? " open" : ""}" data-id="${esc(r.requestId)}" tabindex="0" aria-expanded="${open}">
+  /** 주문건 한 줄(+숨겨진 상세행)의 HTML. isBatchMember면 묶음 펼침 안에서 보이는 줄이라 살짝 표시를 다르게 합니다. */
+  function rowHtml(r, isBatchMember) {
+    const open = expanded.has(r.requestId);
+    const summary = productSummary(r);
+    const qty = totalQty(r);
+    const showMissing = hasMissingInfo(r) && r.status !== "done";
+    return `<tr class="mainrow${open ? " open" : ""}${isBatchMember ? " batchmember" : ""}" data-id="${esc(r.requestId)}" tabindex="0" aria-expanded="${open}">
         <td><input type="checkbox" class="rowSelect" data-id="${esc(r.requestId)}" title="이 주문건 선택" ${selected.has(r.requestId) ? "checked" : ""} style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer;vertical-align:middle;"></td>
         <td class="num reqidcell">
           <span class="expandmark"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span>${esc(r.requestId) || "-"}${r.source === "local" ? '<span class="local-tag" title="이 브라우저에만 저장된 항목이에요">로컬</span>' : ""}${shortageTagHtml(r)}
@@ -3057,10 +3151,91 @@
       <tr class="detailrow" data-detail="${esc(r.requestId)}"${open ? "" : ' style="display:none;"'}>
         <td colspan="17">${detailHtml(r)}</td>
       </tr>`;
-    }).join("");
+  }
+
+  /** "📦 묶음 N건" 요약 줄(+펼치면 보이는 멤버 행들)의 HTML. */
+  function batchGroupHtml(g) {
+    const open = expandedBatches.has(g.batchId);
+    const members = g.members;
+    const memberIds = members.map(m => m.requestId);
+    const statusCounts = {};
+    members.forEach(m => { statusCounts[m.status] = (statusCounts[m.status] || 0) + 1; });
+    const statusOrder = ["pending", "in_progress", "done", "cancelled"];
+    const statusBreakdown = statusOrder.filter(st => statusCounts[st])
+      .map(st => `<span class="statuspill ${st}" style="margin-right:4px;">${STATUS_LABEL[st]} ${statusCounts[st]}</span>`).join("");
+    const totalQtySum = members.reduce((a, m) => a + (totalQty(m) || 0), 0);
+    const repr = members[0];
+    const sameBilling = members.every(m => m.billing === repr.billing);
+    const billHtml = sameBilling && repr.billing
+      ? `<span class="billpill ${repr.billing}">${BILLING_LABEL[repr.billing]}</span>`
+      : '<span style="color:var(--text-muted);">혼합</span>';
+    const anyOverdue = members.some(isOverdue), anySoon = members.some(isSoon);
+    const selCount = memberIds.filter(id => selected.has(id)).length;
+    const groupRow = `<tr class="mainrow batchgroup${open ? " open" : ""}" data-batch="${esc(g.batchId)}" data-members="${esc(memberIds.join(","))}" tabindex="0" aria-expanded="${open}">
+        <td><input type="checkbox" class="batchSelect" data-batch="${esc(g.batchId)}" title="이 묶음 전체 선택" ${selCount === memberIds.length ? "checked" : ""} style="width:15px;height:15px;accent-color:var(--accent);cursor:pointer;vertical-align:middle;"></td>
+        <td class="num reqidcell">
+          <span class="expandmark"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span>📦 묶음 <b>${members.length}건</b>
+        </td>
+        <td class="num col-extra">${esc(repr.requestDate) || "-"}</td>
+        <td>${esc(repr.team) || "-"}</td>
+        <td>${esc(repr.requester) || "-"}</td>
+        <td>${billHtml}</td>
+        <td class="msg col-extra" title="${esc(channelText(repr))}">${esc(channelText(repr)) || "-"}</td>
+        <td class="msg" title="${esc(g.batchLabel || "")}">${esc(g.batchLabel) || "묶음 등록"}</td>
+        <td class="num">${totalQtySum || "-"}</td>
+        <td class="num col-extra">-</td>
+        <td class="duecell col-due${anyOverdue ? " overdue" : anySoon ? " soon" : ""}">${anyOverdue ? "🔥 " : ""}${fmtDue(repr)}</td>
+        <td class="col-recv">${members.length}명</td>
+        <td class="msg col-to col-extra">-</td>
+        <td>${statusBreakdown}</td>
+        <td class="num col-track">-</td>
+        <td class="num col-extra">-</td>
+        <td class="col-memo">-</td>
+      </tr>`;
+    const memberRows = open ? members.map(m => rowHtml(m, true)).join("") : "";
+    return groupRow + memberRows;
+  }
+
+  function renderTable() {
+    const filteredRows = getFilteredRows();
+    const allRows = groupBatches(filteredRows);
+    renderStatusTabCounts();
+
+    // 보기 방식(목록/캘린더/칸반) 전환 — 같은 필터 결과(rows)를 다른 모양으로 그립니다.
+    const listView = document.getElementById("listView");
+    const calView = document.getElementById("calendarView");
+    const kanView = document.getElementById("kanbanView");
+    const pagerEl = document.getElementById("pager");
+    if (listView) listView.style.display = viewMode === "list" ? "" : "none";
+    if (calView) calView.style.display = viewMode === "calendar" ? "" : "none";
+    if (kanView) kanView.style.display = viewMode === "kanban" ? "" : "none";
+    if (pagerEl) pagerEl.style.display = "none";
+    if (viewMode === "calendar") { renderCalendar(filteredRows); return; }
+    if (viewMode === "kanban") { renderKanban(filteredRows); return; }
+
+    // ④ 페이지 나누기 — 한 페이지 30건(기본). 필터가 바뀌면 자동으로 1페이지로 돌아갑니다.
+    const sig = [activeView, activeStatus, activeTeam, activeAssignee, activeChannel, activeRequester, dateRangeField, dateRangeFrom, dateRangeTo, todayOnly, searchTerm, activeBatchId, PAGE_SIZE].join("§");
+    if (sig !== _pageSig) { _pageSig = sig; PAGE = 1; }
+    const totalPages = Math.max(1, Math.ceil(allRows.length / PAGE_SIZE));
+    if (PAGE > totalPages) PAGE = totalPages;
+    if (PAGE < 1) PAGE = 1;
+    const startIdx = (PAGE - 1) * PAGE_SIZE;
+    const rows = allRows.slice(startIdx, startIdx + PAGE_SIZE);
+    renderPager(allRows.length, totalPages, startIdx, rows.length);
+
+    const body = document.getElementById("tableBody");
+    document.getElementById("tableEmpty").style.display = allRows.length ? "none" : "";
+    body.innerHTML = rows.map(r => r._isBatchGroup ? batchGroupHtml(r) : rowHtml(r)).join("");
 
     body.querySelectorAll("tr.mainrow").forEach(tr => {
+      const isGroup = tr.classList.contains("batchgroup");
       const toggle = () => {
+        if (isGroup) {
+          const bid = tr.dataset.batch;
+          if (expandedBatches.has(bid)) expandedBatches.delete(bid); else expandedBatches.add(bid);
+          renderTable();   // 묶음을 펴고/접으면 여러 줄이 한꺼번에 나타나거나 사라지므로 통째로 다시 그립니다.
+          return;
+        }
         const id = tr.dataset.id;
         const drow = body.querySelector(`tr[data-detail="${CSS.escape(id)}"]`);
         const open = expanded.has(id);
@@ -3083,11 +3258,30 @@
       });
     });
 
+    // 묶음 전체 선택 체크박스 — 멤버 전체를 한 번에 선택/해제합니다.
+    body.querySelectorAll(".batchSelect").forEach(cb => {
+      const tr = cb.closest("tr.batchgroup");
+      const ids = (tr && tr.dataset.members ? tr.dataset.members.split(",") : []).filter(Boolean);
+      const selCount = ids.filter(id => selected.has(id)).length;
+      cb.indeterminate = selCount > 0 && selCount < ids.length;
+      cb.addEventListener("click", (e) => e.stopPropagation()); // 행 펼침과 분리
+      cb.addEventListener("change", () => {
+        ids.forEach(id => { if (cb.checked) selected.add(id); else selected.delete(id); });
+        body.querySelectorAll(".rowSelect").forEach(mcb => {
+          if (ids.includes(mcb.dataset.id)) mcb.checked = cb.checked;
+        });
+        updateSelectionUI();
+      });
+    });
+
     body.querySelectorAll("[data-copy]").forEach(btn => {
       btn.addEventListener("click", () => {
         const r = DATA.find(x => x.requestId === btn.dataset.copy);
         if (r) copyText(slackText(r), btn);
       });
+    });
+    body.querySelectorAll("[data-viewbatch]").forEach(btn => {
+      btn.addEventListener("click", () => viewBatch(btn.dataset.viewbatch));
     });
     body.querySelectorAll("[data-del]").forEach(btn => {
       btn.addEventListener("click", () => {
@@ -3193,6 +3387,26 @@
     renderStats();   // 화면에 따라 감출 카드(0건 경고 등)를 다시 계산
     renderTable();
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  /** 상세보기의 '같은 묶음 보기' — 그 묶음 멤버만 모아서 목록(list)으로, 이미 펼친 채로 보여줍니다. */
+  function viewBatch(batchId) {
+    closeReqModal();
+    activeBatchId = batchId;
+    expandedBatches.add(batchId);
+    setView("all");
+    viewMode = "list";
+    updateViewModeButtons();
+    renderTable();
+    const clearBtn = document.getElementById("clearBatchFilter");
+    if (clearBtn) clearBtn.style.display = "";
+    document.querySelector(".tablecard").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  function clearBatchFilter() {
+    activeBatchId = null;
+    const clearBtn = document.getElementById("clearBatchFilter");
+    if (clearBtn) clearBtn.style.display = "none";
+    renderTable();
   }
 
   /* ---------- 요청서 폼 ---------- */
@@ -4281,6 +4495,14 @@
   document.getElementById("selectAll").addEventListener("change", (e) => {
     const on = e.target.checked;
     document.querySelectorAll("#tableBody tr.mainrow").forEach(tr => {
+      if (tr.classList.contains("batchgroup")) {
+        if (tr.classList.contains("open")) return;   // 펼쳐진 묶음은 멤버 행이 따로 있으니 거기서 처리됨
+        const ids = (tr.dataset.members || "").split(",").filter(Boolean);
+        ids.forEach(id => { if (on) selected.add(id); else selected.delete(id); });
+        const gcb = tr.querySelector(".batchSelect");
+        if (gcb) { gcb.checked = on; gcb.indeterminate = false; }
+        return;
+      }
       const id = tr.dataset.id;
       if (on) selected.add(id); else selected.delete(id);
       const cb = tr.querySelector(".rowSelect");
@@ -4323,6 +4545,7 @@
     renderTable();
   });
   document.getElementById("clearTodayFilter").addEventListener("click", () => setView(activeView));
+  document.getElementById("clearBatchFilter").addEventListener("click", clearBatchFilter);
 
   // 상세 검색 — 검색어(수기 입력)·요청자·기간. 전체 요청·안전재고 화면에 공통으로 적용됩니다.
   function applySearchPanel() {
@@ -4349,6 +4572,7 @@
     searchTerm = "";
     activeRequester = null;
     dateRangeFrom = ""; dateRangeTo = "";
+    clearBatchFilter();
     clearTodayFilter();
     renderTable();
   });
@@ -4357,6 +4581,8 @@
     activeTeam = null;
     activeAssignee = null;
     activeChannel = null;
+    activeBatchId = null;
+    document.getElementById("clearBatchFilter").style.display = "none";
     searchTerm = "";
     document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
     document.querySelector('.tab[data-status=""]').classList.add("active");
@@ -4375,6 +4601,8 @@
     activeAssignee = null;
     activeChannel = null;
     activeRequester = null;
+    activeBatchId = null;
+    document.getElementById("clearBatchFilter").style.display = "none";
     dateRangeFrom = ""; dateRangeTo = "";
     searchTerm = "";
     document.querySelectorAll(".navitem").forEach(b => b.classList.remove("active"));
@@ -5112,6 +5340,7 @@
     // 파일마다 배송 양식인지 시도합니다. 실패하면 에러 대신 '참고용 첨부'로 넘어갑니다.
     let orders = [];
     let anyWarnStores = [];
+    const sourceFileNames = [];   // 실제로 주문건을 만들어낸 파일들 — 묶음 이름 기본값으로 씀
     for (const f of files) {
       try {
         const parsed = await parseBulkFile(f);
@@ -5119,6 +5348,7 @@
           const auto = !!parsed._autoBilling;
           parsed.forEach(o => { o._autoBilling = auto; });
           orders = orders.concat(parsed);
+          sourceFileNames.push(f.name);
           if (parsed._warnStores) anyWarnStores = anyWarnStores.concat(parsed._warnStores);
         }
       } catch (e) { /* 배송 양식이 아니면 참고용 파일로 취급 — 오류로 안 보여줍니다 */ }
@@ -5199,12 +5429,17 @@
     const content = gv("fContent") || null;
 
     msg.textContent = "";
+    // 묶음 이름 기본값 — 실제로 주문건을 만들어낸 파일 이름(확장자 제외)에서 가져옵니다.
+    const defaultBatchLabel = sourceFileNames.length
+      ? sourceFileNames[0].replace(/\.[^.]+$/, "")
+      : "";
     // 등록 전 '매칭 확인·정정' 화면을 띄웁니다. 실제 등록은 그 화면의 '등록' 버튼에서 실행돼요.
     openBulkReview(orders, {
       team, requester, desiredDate, assignee, content, channelStr,
       billingValue, warnStores: anyWarnStores,
       matched, byName, totalProducts, msgId: "fBulkMsg", fileInputId: "fBulkFile",
       files: files.concat(fileStore.fBulkRefFiles),   // ① 배송 양식 + ② 참고용 서류 — 생성되는 모든 요청서에 함께 첨부
+      batchLabel: defaultBatchLabel,
     });
   }
 
@@ -5212,6 +5447,9 @@
   async function submitBulkOrders(orders, ctx) {
     const msg = document.getElementById(ctx.msgId);
     let ok = 0; const failed = [];
+    // 2건 이상이면 이 묶음 전체가 공유할 식별자를 하나 만듭니다. 목록에서 "묶음 N건"으로 접어 보여줄 때 씁니다.
+    const batchId = orders.length >= 2 ? ("B" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)) : null;
+    const batchLabel = orders.length >= 2 ? ((ctx.batchLabel || "").trim() || null) : null;
     for (let i = 0; i < orders.length; i++) {
       const o = orders[i];
       if (msg) { msg.style.color = ""; msg.textContent = `등록 중... (${i + 1}/${orders.length})`; }
@@ -5231,6 +5469,7 @@
         receiverAddress: o.address || null,
         receiverMessage: o.message || null,
         billingType: (o._autoBilling ? o.billing : ctx.billingValue),
+        batchId, batchLabel,
       };
       try {
         const res = await fetch(API_CREATE, {
@@ -5321,6 +5560,12 @@
           <button type="button" class="btn ghost small brClose">닫기 ✕</button>
         </div>
         <div style="font-size:12px;color:var(--text-muted);margin:6px 0 2px;">요청팀 ${esc(ctx.team)} · 요청자 ${esc(ctx.requester)} · 희망일 ${esc(ctx.desiredDate)} · 총 ${ctx.totalProducts}개 상품</div>
+        ${orders.length >= 2 ? `
+        <div style="margin:10px 0;padding:10px 12px;background:var(--surface-alt,#f5f5f7);border-radius:8px;">
+          <label style="font-size:12px;font-weight:600;color:var(--text-muted);">📦 묶음 이름 <span style="font-weight:400;">(같은 파일에서 온 ${orders.length}건을 목록에서 하나로 묶어서 보여줘요)</span></label>
+          <input id="bulkBatchLabel" type="text" value="${esc(ctx.batchLabel || "")}" placeholder="예: WBL 주얼패치 시딩 10월"
+            style="width:100%;margin-top:4px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface-alt,#fff);color:var(--text);box-sizing:border-box;">
+        </div>` : ""}
         ${unm ? `<div style="font-size:12px;color:#d33;font-weight:600;margin:4px 0;">⚠️ 미매칭 ${unm}개 — '정정'을 눌러 올바른 상품을 골라주세요. (미매칭이어도 등록은 되지만 재고가 안 잡혀요)</div>` : `<div style="font-size:12px;color:#12925a;font-weight:600;margin:4px 0;">✅ 모든 상품이 매칭됐어요. 확인 후 등록하세요.</div>`}
         ${(ctx.warnStores && ctx.warnStores.length) ? `<div style="font-size:12px;color:#b8860b;margin:4px 0;">⚠️ 주소 못 찾은 매장: ${esc(ctx.warnStores.join(", "))}</div>` : ""}
         <div>${rows}</div>
@@ -5332,6 +5577,8 @@
     host.querySelector(".brOverlay").addEventListener("click", closeBulkReview);
     host.querySelectorAll(".brClose").forEach(b => b.addEventListener("click", closeBulkReview));
     host.querySelector("#brSubmit").addEventListener("click", () => { closeBulkReview(); submitBulkOrders(_bulkOrders, _bulkCtx); });
+    const batchLabelInput = host.querySelector("#bulkBatchLabel");
+    if (batchLabelInput) batchLabelInput.addEventListener("input", () => { ctx.batchLabel = batchLabelInput.value; });
     host.querySelectorAll(".brFix").forEach(b => b.addEventListener("click", () => {
       const oi = +b.dataset.oi, pi = +b.dataset.pi;
       const box = host.querySelector(`.brSearch[data-oi="${oi}"][data-pi="${pi}"]`);
