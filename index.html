@@ -987,6 +987,11 @@
         <svg class="icon" viewBox="0 0 24 24"><path d="M3 10l1.5-5h15L21 10"/><path d="M4 10v9h16v-9"/><path d="M9 19v-5h6v5"/></svg>
         매장 관리
       </button>
+      <div class="navsep"></div>
+      <button class="navitem" data-view="stockwatch">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+        재고 감시
+      </button>
     </nav>
     <div class="sidebar-foot">
       마지막 업데이트<br><span class="num" id="sidebarUpdated"></span>
@@ -1513,6 +1518,31 @@
           </table>
         </div>
       </div>
+
+      <!-- ============ 재고 감시(안전재고 임계치) ============ -->
+      <div id="stockWatchSection" style="display:none;padding:4px 2px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+          <input type="text" id="stockWatchSearchInput" placeholder="상품명·상품코드로 검색" style="flex:1;min-width:200px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface-alt,#fff);color:var(--text);">
+          <button type="button" class="btn ghost" id="stockWatchRunBtn">지금 확인</button>
+          <button type="button" class="btn" id="stockWatchAddBtn">+ 감시 상품 추가</button>
+        </div>
+        <p style="font-size:12.5px;color:var(--text-muted);margin:0 0 12px;">여기 등록한 상품은 매일 09:00·14:00에 이지어드민 재고를 자동으로 확인해서, 기준 수량보다 적으면 물류 그룹 Slack으로 알려드려요. 같은 상품은 하루에 한 번만 알림이 와요.</p>
+        <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;">
+          <table style="width:100%;border-collapse:collapse;font-size:13.5px;">
+            <thead>
+              <tr style="background:var(--surface-alt,#f5f5f7);">
+                <th style="text-align:left;padding:10px 12px;">상품명</th>
+                <th style="text-align:left;padding:10px 12px;">상품코드</th>
+                <th style="text-align:left;padding:10px 12px;">기준 수량</th>
+                <th style="text-align:left;padding:10px 12px;">최근 확인</th>
+                <th style="text-align:left;padding:10px 12px;">상태</th>
+                <th style="padding:10px 12px;"></th>
+              </tr>
+            </thead>
+            <tbody id="stockWatchTableBody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -1645,6 +1675,16 @@
     } catch (e) { /* 실패해도 매장 자동완성만 비는 거라 화면은 정상 동작 */ }
   }
 
+  // 안전재고 임계치 감시 목록 — "재고 감시" 화면에서 추가/수정
+  let STOCK_WATCHES = [];
+  async function loadStockWatches() {
+    try {
+      const res = await fetch(API_BASE + "/api/stock-watches");
+      if (!res.ok) throw new Error("서버 응답 " + res.status);
+      STOCK_WATCHES = await res.json();
+    } catch (e) { /* 실패해도 재고 감시 화면만 비는 거라 다른 기능은 정상 동작 */ }
+  }
+
   /* ===== 매장 관리 화면 ===== */
   let storeSearchTerm = "";
   function renderStoreTable() {
@@ -1759,6 +1799,144 @@
     renderStoreTable();
   });
   document.getElementById("storeAddBtn").addEventListener("click", () => openStoreEditor(null));
+
+  /* ===== 재고 감시 화면(안전재고 임계치) ===== */
+  let stockWatchSearchTerm = "";
+  function stockWatchStatusHtml(w) {
+    if (w.lastCheckedQty === null || w.lastCheckedQty === undefined) {
+      return `<span style="color:var(--text-muted);">확인전</span>`;
+    }
+    if (w.lastCheckedQty < w.thresholdQty) {
+      return `<span style="color:var(--danger);font-weight:700;">⚠️ 미달</span>`;
+    }
+    return `<span style="color:var(--ok,#1a8a4a);">정상</span>`;
+  }
+  function renderStockWatchTable() {
+    const tbody = document.getElementById("stockWatchTableBody");
+    if (!tbody) return;
+    const q = stockWatchSearchTerm.trim().toLowerCase();
+    const rows = STOCK_WATCHES.filter(w => {
+      if (!q) return true;
+      const hay = [w.productName, w.productCode].join(" ").toLowerCase();
+      return hay.includes(q);
+    }).slice().sort((a, b) => String(a.productName || a.productCode || "").localeCompare(String(b.productName || b.productCode || "")));
+    tbody.innerHTML = rows.map(w => `
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:9px 12px;font-weight:600;">${esc(w.productName) || "-"}</td>
+        <td style="padding:9px 12px;color:var(--text-muted);">${esc(w.productCode)}</td>
+        <td style="padding:9px 12px;">${w.thresholdQty}개</td>
+        <td style="padding:9px 12px;color:var(--text-muted);">${w.lastCheckedQty === null || w.lastCheckedQty === undefined ? "-" : w.lastCheckedQty + "개"}${w.lastCheckedAt ? ` <span style="font-size:11px;">(${esc(String(w.lastCheckedAt).replace("T", " ").slice(0, 16))})</span>` : ""}</td>
+        <td style="padding:9px 12px;">${stockWatchStatusHtml(w)}</td>
+        <td style="padding:9px 12px;white-space:nowrap;">
+          <button type="button" class="btn ghost small" data-sw-edit="${w.id}">수정</button>
+          <button type="button" class="btn ghost small" data-sw-del="${w.id}" style="color:var(--danger);">삭제</button>
+        </td>
+      </tr>`).join("") || `<tr><td colspan="6" style="padding:22px;text-align:center;color:var(--text-muted);">${q ? "검색 결과가 없어요." : "등록된 감시 상품이 없어요."}</td></tr>`;
+    tbody.querySelectorAll("[data-sw-edit]").forEach(b => b.addEventListener("click", () => {
+      const w = STOCK_WATCHES.find(x => String(x.id) === b.dataset.swEdit);
+      if (w) openStockWatchEditor(w);
+    }));
+    tbody.querySelectorAll("[data-sw-del]").forEach(b => b.addEventListener("click", () => deleteStockWatch(b.dataset.swDel)));
+  }
+
+  function openStockWatchEditor(watch) {
+    let ov = document.getElementById("stockWatchModal");
+    if (!ov) {
+      ov = document.createElement("div");
+      ov.id = "stockWatchModal";
+      ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;";
+      ov.innerHTML = `
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:440px;width:100%;padding:20px;box-shadow:0 12px 44px rgba(0,0,0,.22);">
+          <div id="swmTitle" style="font-size:16px;font-weight:700;margin-bottom:12px;color:var(--text);"></div>
+          <label style="font-size:12px;font-weight:600;color:var(--text-muted);">상품코드 * (이지어드민 코드)</label>
+          <input id="swmCode" type="text" style="width:100%;margin:4px 0 10px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface-alt,#fff);color:var(--text);box-sizing:border-box;">
+          <label style="font-size:12px;font-weight:600;color:var(--text-muted);">상품명 (화면 표시용)</label>
+          <input id="swmName" type="text" style="width:100%;margin:4px 0 10px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface-alt,#fff);color:var(--text);box-sizing:border-box;">
+          <label style="font-size:12px;font-weight:600;color:var(--text-muted);">기준 수량 * (이 아래로 떨어지면 알림)</label>
+          <input id="swmThreshold" type="number" min="0" style="width:100%;margin:4px 0 10px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface-alt,#fff);color:var(--text);box-sizing:border-box;">
+          <div id="swmErr" style="font-size:12px;color:var(--danger);min-height:16px;margin:4px 0 8px;"></div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button id="swmCancel" type="button" class="btn ghost">취소</button>
+            <button id="swmSave" type="button" class="btn primary">저장</button>
+          </div>
+        </div>`;
+      document.body.appendChild(ov);
+    }
+    const title = ov.querySelector("#swmTitle");
+    const codeEl = ov.querySelector("#swmCode");
+    const nameEl = ov.querySelector("#swmName");
+    const thresholdEl = ov.querySelector("#swmThreshold");
+    const errEl = ov.querySelector("#swmErr");
+    title.textContent = watch ? "감시 상품 수정" : "감시 상품 추가";
+    codeEl.value = watch ? watch.productCode : "";
+    nameEl.value = watch ? (watch.productName || "") : "";
+    thresholdEl.value = watch ? watch.thresholdQty : "";
+    errEl.textContent = "";
+    ov.style.display = "flex";
+    setTimeout(() => codeEl.focus(), 30);
+
+    const onSave = async () => {
+      const code = codeEl.value.trim();
+      const threshold = parseInt(thresholdEl.value, 10);
+      if (!code) { errEl.textContent = "상품코드를 입력해 주세요."; codeEl.focus(); return; }
+      if (isNaN(threshold) || threshold < 0) { errEl.textContent = "기준 수량을 올바르게 입력해 주세요."; thresholdEl.focus(); return; }
+      const payload = { productCode: code, productName: nameEl.value.trim(), thresholdQty: threshold };
+      try {
+        const url = watch ? (API_BASE + "/api/stock-watches/" + watch.id) : (API_BASE + "/api/stock-watches");
+        const res = await fetch(url, {
+          method: watch ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) throw new Error("서버 응답 " + res.status);
+        close();
+        await loadStockWatches();
+        renderStockWatchTable();
+        showBanner(`<span>감시 상품 "${esc(nameEl.value.trim() || code)}"을(를) 저장했어요.</span>`, "ok");
+        setTimeout(() => showBanner(""), 2500);
+      } catch (e) { errEl.textContent = "저장에 실패했어요: " + (e.message || "연결 오류"); }
+    };
+    const onCancel = () => close();
+    const cleanup = () => { saveBtn.removeEventListener("click", onSave); cancelBtn.removeEventListener("click", onCancel); };
+    const close = () => { ov.style.display = "none"; cleanup(); };
+    const saveBtn = ov.querySelector("#swmSave");
+    const cancelBtn = ov.querySelector("#swmCancel");
+    saveBtn.addEventListener("click", onSave);
+    cancelBtn.addEventListener("click", onCancel);
+  }
+
+  async function deleteStockWatch(id) {
+    const w = STOCK_WATCHES.find(x => String(x.id) === String(id));
+    if (!w) return;
+    if (!confirm(`"${w.productName || w.productCode}" 감시를 삭제할까요?`)) return;
+    try {
+      const res = await fetch(API_BASE + "/api/stock-watches/" + id, { method: "DELETE" });
+      if (!res.ok) throw new Error("서버 응답 " + res.status);
+      await loadStockWatches();
+      renderStockWatchTable();
+    } catch (e) { alert("삭제에 실패했어요: " + (e.message || "연결 오류")); }
+  }
+
+  async function runStockWatchCheckNow() {
+    const btn = document.getElementById("stockWatchRunBtn");
+    if (btn) { btn.disabled = true; btn.textContent = "확인 중..."; }
+    try {
+      const res = await fetch(API_BASE + "/api/stock-watches/run-check", { method: "POST" });
+      if (!res.ok) throw new Error("서버 응답 " + res.status);
+      STOCK_WATCHES = await res.json();
+      renderStockWatchTable();
+      showBanner(`<span>재고 확인을 완료했어요.</span>`, "ok");
+      setTimeout(() => showBanner(""), 2500);
+    } catch (e) { alert("확인에 실패했어요: " + (e.message || "연결 오류")); }
+    finally { if (btn) { btn.disabled = false; btn.textContent = "지금 확인"; } }
+  }
+
+  document.getElementById("stockWatchSearchInput").addEventListener("input", (e) => {
+    stockWatchSearchTerm = e.target.value;
+    renderStockWatchTable();
+  });
+  document.getElementById("stockWatchAddBtn").addEventListener("click", () => openStockWatchEditor(null));
+  document.getElementById("stockWatchRunBtn").addEventListener("click", runStockWatchCheckNow);
 
   let DATA = [];
   function rebuildData() {
@@ -2026,7 +2204,7 @@
   // 안전재고·취소 내역처럼 지표 카드를 아예 안 쓰는 화면에서는, 다른 이유로 focus mode가
   // 꺼지더라도(예: 상태 탭을 눌러서 clearTodayFilter가 불릴 때) 카드가 다시 튀어나오면 안 됩니다.
   function chromeHiddenView() {
-    return activeView === "form" || activeView === "logistics" || activeView === "cancelled" || activeView === "safety" || activeView === "exceltool" || activeView === "stores";
+    return activeView === "form" || activeView === "logistics" || activeView === "cancelled" || activeView === "safety" || activeView === "exceltool" || activeView === "stores" || activeView === "stockwatch";
   }
   function setFocusMode(on) {
     const hide = on || chromeHiddenView();
@@ -3497,6 +3675,7 @@
       logistics: ["물류 대장", "물류팀 출고요청 전용 화면 — 재고 확인·D-day·보류까지 관리해요"],
       exceltool: ["엑셀 작업실", "엑셀 파일을 올려서 매칭·계산·정리 작업을 하고, 완료되면 그대로 내려받아요"],
       stores: ["매장 관리", "매장 이름·주소·연락처와 별칭을 관리해요. 여기서 추가하면 업로드 파일 자동 인식에 바로 쓰여요"],
+      stockwatch: ["재고 감시", "등록한 상품의 재고가 기준 수량보다 적어지면 매일 09시·14시에 물류 그룹으로 Slack 알림을 보내요"],
     };
     document.getElementById("pageTitle").textContent = titles[view][0];
     document.getElementById("pageSub").textContent = titles[view][1];
@@ -3506,6 +3685,7 @@
     const isLogistics = view === "logistics";
     const isExcelTool = view === "exceltool";
     const isStores = view === "stores";
+    const isStockWatch = view === "stockwatch";
     const isCancelled = view === "cancelled";
     const isSafety = view === "safety";
     const listOnly = isCancelled || isSafety; // 지표·차트·안내문 없이 목록만
@@ -3514,18 +3694,21 @@
     //    (대시보드 화면에서는 지금처럼 전부 보여요)
     document.body.classList.toggle("lean-banner", view !== "dashboard");
     document.body.classList.toggle("hide-cumulative", view === "all");
-    document.querySelector(".stats").style.display = (isForm || isLogistics || isExcelTool || isStores || listOnly) ? "none" : "";
-    document.querySelector(".panels").style.display = (isForm || isLogistics || isExcelTool || isStores || listOnly) ? "none" : "";
-    document.querySelector(".tablecard").style.display = (isForm || isLogistics || isExcelTool || isStores) ? "none" : "";
+    document.querySelector(".stats").style.display = (isForm || isLogistics || isExcelTool || isStores || isStockWatch || listOnly) ? "none" : "";
+    document.querySelector(".panels").style.display = (isForm || isLogistics || isExcelTool || isStores || isStockWatch || listOnly) ? "none" : "";
+    document.querySelector(".tablecard").style.display = (isForm || isLogistics || isExcelTool || isStores || isStockWatch) ? "none" : "";
     const searchPanelEl = document.getElementById("searchPanel");
-    if (searchPanelEl) searchPanelEl.style.display = (isForm || isLogistics || isExcelTool || isStores) ? "none" : "";
-    document.querySelector(".howto").style.display = (isForm || isLogistics || isExcelTool || isStores || listOnly) ? "none" : "";
+    if (searchPanelEl) searchPanelEl.style.display = (isForm || isLogistics || isExcelTool || isStores || isStockWatch) ? "none" : "";
+    document.querySelector(".howto").style.display = (isForm || isLogistics || isExcelTool || isStores || isStockWatch || listOnly) ? "none" : "";
     document.getElementById("formSection").style.display = isForm ? "" : "none";
     document.getElementById("logisticsSection").style.display = isLogistics ? "" : "none";
     document.getElementById("excelToolSection").style.display = isExcelTool ? "" : "none";
     const storeSectionEl = document.getElementById("storeSection");
     if (storeSectionEl) storeSectionEl.style.display = isStores ? "" : "none";
     if (isStores) renderStoreTable();
+    const stockWatchSectionEl = document.getElementById("stockWatchSection");
+    if (stockWatchSectionEl) stockWatchSectionEl.style.display = isStockWatch ? "" : "none";
+    if (isStockWatch) renderStockWatchTable();
     // 상태 탭(대기/진행중/완료)은 취소 목록에서만 의미가 없으므로 숨깁니다.
     // 안전재고는 완료건을 따로 보고 싶다는 피드백으로 다른 화면처럼 탭을 그대로 씁니다.
     const statusTabsEl = document.getElementById("statusTabs");
@@ -6159,6 +6342,7 @@
   setInterval(fetchFromServer, 30000);
   loadMatchMemory();   // 학습된 상품매칭 불러오기(자동매칭에 최우선 적용)
   loadStoreAddresses();   // 매장 주소록 불러오기(매장 관리 화면에서 추가/수정 가능)
+  loadStockWatches();     // 안전재고 임계치 감시 목록 불러오기(재고 감시 화면에서 추가/수정 가능)
 
   function setStoreFiles(inputId, files) {
     const input = document.getElementById(inputId);
