@@ -1534,6 +1534,24 @@
             <div style="font-size:15.5px;font-weight:700;margin-bottom:4px;">A/S 입고 확인</div>
             <div style="font-size:12.5px;color:var(--text-muted);line-height:1.5;">CS팀 입고·반품입고 건을 바코드로 한 번 더 이중체크</div>
           </button>
+          <button type="button" class="logisticsHubCard" data-target="logisticsSettings" style="text-align:left;cursor:pointer;border:1px solid var(--border);border-radius:14px;padding:20px;background:var(--surface);color:var(--text);">
+            <div style="font-size:26px;margin-bottom:8px;">⚙️</div>
+            <div style="font-size:15.5px;font-weight:700;margin-bottom:4px;">설정</div>
+            <div style="font-size:12.5px;color:var(--text-muted);line-height:1.5;">미인식 발주서함 등, 가끔 들어가는 관리용 화면 모음</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- ============ 물류팀 전용 허브 — 설정(관리용 화면 모음) ============ -->
+      <div id="logisticsSettingsSection" style="display:none;padding:4px 2px;">
+        <button type="button" class="btn ghost" id="logisticsSettingsBackBtn" style="margin-bottom:10px;">← 물류팀 메뉴로</button>
+        <p style="font-size:13px;color:var(--text-muted);margin:0 0 16px;">가끔 들어가서 처리하는 관리용 화면이에요.</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;max-width:700px;">
+          <button type="button" class="logisticsHubCard" data-target="unrecognizedPdfs" style="text-align:left;cursor:pointer;border:1px solid var(--border);border-radius:14px;padding:20px;background:var(--surface);color:var(--text);">
+            <div style="font-size:26px;margin-bottom:8px;">📥</div>
+            <div style="font-size:15.5px;font-weight:700;margin-bottom:4px;">미인식 발주서함</div>
+            <div style="font-size:12.5px;color:var(--text-muted);line-height:1.5;">PDF 자동채우기가 못 읽은 새 양식이 여기 쌓여요</div>
+          </button>
         </div>
       </div>
 
@@ -1636,6 +1654,25 @@
               <tbody id="asCheckTableBody"></tbody>
             </table>
           </div>
+        </div>
+      </div>
+
+      <!-- ============ 미인식 발주서함 — 물류팀 허브에서만 들어와요 ============ -->
+      <div id="unrecognizedPdfsSection" style="display:none;padding:4px 2px;">
+        <button type="button" class="btn ghost" id="unrecognizedPdfsBackBtn" style="margin-bottom:10px;">← 설정 메뉴로</button>
+        <p style="font-size:12.5px;color:var(--text-muted);margin:0 0 12px;">PDF 발주서 자동채우기가 "아직 지원하지 않는 양식"이라고 판단한 파일들이 쌓이는 곳이에요. 다운로드해서 전달하시면 그 양식도 지원하도록 추가해드려요.</p>
+        <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;">
+          <table style="width:100%;border-collapse:collapse;font-size:13.5px;">
+            <thead>
+              <tr style="background:var(--surface-alt,#f5f5f7);">
+                <th style="text-align:left;padding:10px 12px;">파일명</th>
+                <th style="text-align:left;padding:10px 12px;">업로드 일시</th>
+                <th style="text-align:left;padding:10px 12px;">상태</th>
+                <th style="padding:10px 12px;"></th>
+              </tr>
+            </thead>
+            <tbody id="unrecognizedPdfsTableBody"></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -2039,7 +2076,7 @@
      재고 감시·A/S 입고 확인 화면 묶음을 가립니다. 한 번 맞히면 이 탭을 닫기 전까진
      다시 묻지 않아요(sessionStorage).
      ======================================================================= */
-  const LOGISTICS_GATED_VIEWS = new Set(["logisticsHub", "stockwatch", "ascheck"]);
+  const LOGISTICS_GATED_VIEWS = new Set(["logisticsHub", "stockwatch", "ascheck", "logisticsSettings", "unrecognizedPdfs"]);
   let LOGISTICS_UNLOCKED = (() => { try { return sessionStorage.getItem("logisticsUnlocked") === "1"; } catch (e) { return false; } })();
 
   function askLogisticsPassword() {
@@ -2118,6 +2155,77 @@
   if (stockWatchBackBtn) stockWatchBackBtn.addEventListener("click", () => setView("logisticsHub"));
   const asCheckBackBtn = document.getElementById("asCheckBackBtn");
   if (asCheckBackBtn) asCheckBackBtn.addEventListener("click", () => setView("logisticsHub"));
+  const unrecognizedPdfsBackBtn = document.getElementById("unrecognizedPdfsBackBtn");
+  if (unrecognizedPdfsBackBtn) unrecognizedPdfsBackBtn.addEventListener("click", () => setView("logisticsSettings"));
+  const logisticsSettingsBackBtn = document.getElementById("logisticsSettingsBackBtn");
+  if (logisticsSettingsBackBtn) logisticsSettingsBackBtn.addEventListener("click", () => setView("logisticsHub"));
+
+  /* =======================================================================
+     미인식 발주서함 — PDF 자동채우기가 못 읽은 새 양식이 쌓이는 곳.
+     ======================================================================= */
+  async function loadAndRenderUnrecognizedPdfs() {
+    const tbody = document.getElementById("unrecognizedPdfsTableBody");
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="4" style="padding:18px;text-align:center;color:var(--text-muted);">불러오는 중…</td></tr>`;
+    let rows = [];
+    try {
+      const res = await fetch(API_BASE + "/api/order-files/unrecognized");
+      if (!res.ok) throw new Error("서버 응답 " + res.status);
+      rows = await res.json();
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="4" style="padding:18px;text-align:center;color:var(--danger);">불러오기 실패: ${esc(e.message || "연결 오류")}</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = rows.map(r => `
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:9px 12px;">${esc(r.fileName || "-")}</td>
+        <td style="padding:9px 12px;font-size:12.5px;color:var(--text-muted);">${esc(String(r.uploadedAt || "").replace("T", " ").slice(0, 16))}</td>
+        <td style="padding:9px 12px;">${r.resolved ? `<span style="color:var(--ok,#1a8a4a);">처리됨</span>` : `<span style="color:var(--warn,#a8501b);font-weight:700;">대기중</span>`}</td>
+        <td style="padding:9px 12px;white-space:nowrap;">
+          <button type="button" class="btn ghost small" data-dl="${r.id}">다운로드</button>
+          ${!r.resolved ? `<button type="button" class="btn ghost small" data-resolve="${r.id}">처리완료로 표시</button>` : ""}
+          <button type="button" class="btn ghost small" data-del="${r.id}" style="color:var(--danger);">삭제</button>
+        </td>
+      </tr>`).join("") || `<tr><td colspan="4" style="padding:22px;text-align:center;color:var(--text-muted);">쌓인 파일이 없어요.</td></tr>`;
+
+    tbody.querySelectorAll("[data-dl]").forEach(b => b.addEventListener("click", () => downloadUnrecognizedPdf(b.dataset.dl)));
+    tbody.querySelectorAll("[data-resolve]").forEach(b => b.addEventListener("click", () => resolveUnrecognizedPdf(b.dataset.resolve)));
+    tbody.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", () => deleteUnrecognizedPdf(b.dataset.del)));
+  }
+
+  async function downloadUnrecognizedPdf(id) {
+    try {
+      const res = await fetch(API_BASE + "/api/order-files/unrecognized/" + encodeURIComponent(id));
+      if (!res.ok) throw new Error("서버 응답 " + res.status);
+      const out = await res.json();
+      const bin = atob(out.fileBase64);
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      const blob = new Blob([arr], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = out.fileName || ("발주서_" + id + ".pdf");
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (e) { alert("다운로드에 실패했어요: " + (e.message || "연결 오류")); }
+  }
+
+  async function resolveUnrecognizedPdf(id) {
+    try {
+      const res = await fetch(API_BASE + "/api/order-files/unrecognized/" + encodeURIComponent(id) + "/resolve", { method: "PATCH" });
+      if (!res.ok) throw new Error("서버 응답 " + res.status);
+      await loadAndRenderUnrecognizedPdfs();
+    } catch (e) { alert("처리 표시에 실패했어요: " + (e.message || "연결 오류")); }
+  }
+
+  async function deleteUnrecognizedPdf(id) {
+    if (!confirm("이 파일을 목록에서 삭제할까요?")) return;
+    try {
+      const res = await fetch(API_BASE + "/api/order-files/unrecognized/" + encodeURIComponent(id), { method: "DELETE" });
+      if (!res.ok) throw new Error("서버 응답 " + res.status);
+      await loadAndRenderUnrecognizedPdfs();
+    } catch (e) { alert("삭제에 실패했어요: " + (e.message || "연결 오류")); }
+  }
 
   /* =======================================================================
      A/S 입고 이중체크
@@ -2683,7 +2791,7 @@
   // 안전재고·취소 내역처럼 지표 카드를 아예 안 쓰는 화면에서는, 다른 이유로 focus mode가
   // 꺼지더라도(예: 상태 탭을 눌러서 clearTodayFilter가 불릴 때) 카드가 다시 튀어나오면 안 됩니다.
   function chromeHiddenView() {
-    return activeView === "form" || activeView === "logistics" || activeView === "cancelled" || activeView === "safety" || activeView === "exceltool" || activeView === "stores" || activeView === "stockwatch" || activeView === "ascheck" || activeView === "logisticsHub";
+    return activeView === "form" || activeView === "logistics" || activeView === "cancelled" || activeView === "safety" || activeView === "exceltool" || activeView === "stores" || activeView === "stockwatch" || activeView === "ascheck" || activeView === "logisticsHub" || activeView === "logisticsSettings" || activeView === "unrecognizedPdfs";
   }
   function setFocusMode(on) {
     const hide = on || chromeHiddenView();
@@ -4162,6 +4270,8 @@
       stockwatch: ["재고 감시", "등록한 상품의 재고가 기준 수량보다 적어지면 매일 09시·14시에 물류 그룹으로 Slack 알림을 보내요"],
       ascheck: ["A/S 입고 확인", "CS팀이 이지어드민에 등록한 입고·반품입고 건을 바코드로 한 번 더 확인하는 물류팀 전용 화면이에요"],
       logisticsHub: ["물류팀", "물류팀만 쓰는 화면이에요. 작업할 항목을 골라주세요"],
+      logisticsSettings: ["설정", "가끔 들어가서 처리하는 관리용 화면 모음이에요"],
+      unrecognizedPdfs: ["미인식 발주서함", "PDF 자동채우기가 아직 못 읽는 새 양식이 쌓이는 곳이에요"],
     };
     document.getElementById("pageTitle").textContent = titles[view][0];
     document.getElementById("pageSub").textContent = titles[view][1];
@@ -4174,6 +4284,8 @@
     const isStockWatch = view === "stockwatch";
     const isAsCheck = view === "ascheck";
     const isLogisticsHub = view === "logisticsHub";
+    const isLogisticsSettings = view === "logisticsSettings";
+    const isUnrecognizedPdfs = view === "unrecognizedPdfs";
     const isCancelled = view === "cancelled";
     const isSafety = view === "safety";
     const listOnly = isCancelled || isSafety; // 지표·차트·안내문 없이 목록만
@@ -4182,12 +4294,12 @@
     //    (대시보드 화면에서는 지금처럼 전부 보여요)
     document.body.classList.toggle("lean-banner", view !== "dashboard");
     document.body.classList.toggle("hide-cumulative", view === "all");
-    document.querySelector(".stats").style.display = (isForm || isLogistics || isExcelTool || isStores || isStockWatch || isAsCheck || isLogisticsHub || listOnly) ? "none" : "";
-    document.querySelector(".panels").style.display = (isForm || isLogistics || isExcelTool || isStores || isStockWatch || isAsCheck || isLogisticsHub || listOnly) ? "none" : "";
-    document.querySelector(".tablecard").style.display = (isForm || isLogistics || isExcelTool || isStores || isStockWatch || isAsCheck || isLogisticsHub) ? "none" : "";
+    document.querySelector(".stats").style.display = (isForm || isLogistics || isExcelTool || isStores || isStockWatch || isAsCheck || isLogisticsHub || isLogisticsSettings || isUnrecognizedPdfs || listOnly) ? "none" : "";
+    document.querySelector(".panels").style.display = (isForm || isLogistics || isExcelTool || isStores || isStockWatch || isAsCheck || isLogisticsHub || isLogisticsSettings || isUnrecognizedPdfs || listOnly) ? "none" : "";
+    document.querySelector(".tablecard").style.display = (isForm || isLogistics || isExcelTool || isStores || isStockWatch || isAsCheck || isLogisticsHub || isLogisticsSettings || isUnrecognizedPdfs) ? "none" : "";
     const searchPanelEl = document.getElementById("searchPanel");
-    if (searchPanelEl) searchPanelEl.style.display = (isForm || isLogistics || isExcelTool || isStores || isStockWatch || isAsCheck || isLogisticsHub) ? "none" : "";
-    document.querySelector(".howto").style.display = (isForm || isLogistics || isExcelTool || isStores || isStockWatch || isAsCheck || isLogisticsHub || listOnly) ? "none" : "";
+    if (searchPanelEl) searchPanelEl.style.display = (isForm || isLogistics || isExcelTool || isStores || isStockWatch || isAsCheck || isLogisticsHub || isLogisticsSettings || isUnrecognizedPdfs) ? "none" : "";
+    document.querySelector(".howto").style.display = (isForm || isLogistics || isExcelTool || isStores || isStockWatch || isAsCheck || isLogisticsHub || isLogisticsSettings || isUnrecognizedPdfs || listOnly) ? "none" : "";
     document.getElementById("formSection").style.display = isForm ? "" : "none";
     document.getElementById("logisticsSection").style.display = isLogistics ? "" : "none";
     document.getElementById("excelToolSection").style.display = isExcelTool ? "" : "none";
@@ -4202,6 +4314,11 @@
     if (isAsCheck) enterAsCheckView();
     const logisticsHubSectionEl = document.getElementById("logisticsHubSection");
     if (logisticsHubSectionEl) logisticsHubSectionEl.style.display = isLogisticsHub ? "" : "none";
+    const logisticsSettingsSectionEl = document.getElementById("logisticsSettingsSection");
+    if (logisticsSettingsSectionEl) logisticsSettingsSectionEl.style.display = isLogisticsSettings ? "" : "none";
+    const unrecognizedPdfsSectionEl = document.getElementById("unrecognizedPdfsSection");
+    if (unrecognizedPdfsSectionEl) unrecognizedPdfsSectionEl.style.display = isUnrecognizedPdfs ? "" : "none";
+    if (isUnrecognizedPdfs) loadAndRenderUnrecognizedPdfs();
     // 상태 탭(대기/진행중/완료)은 취소 목록에서만 의미가 없으므로 숨깁니다.
     // 안전재고는 완료건을 따로 보고 싶다는 피드백으로 다른 화면처럼 탭을 그대로 씁니다.
     const statusTabsEl = document.getElementById("statusTabs");
