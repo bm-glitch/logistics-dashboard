@@ -988,9 +988,10 @@
         매장 관리
       </button>
       <div class="navsep"></div>
-      <button class="navitem" data-view="stockwatch">
-        <svg class="icon" viewBox="0 0 24 24"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
-        재고 감시
+      <div class="navsep"></div>
+      <button class="navitem" data-view="logisticsHub">
+        <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        🔒 물류팀
       </button>
     </nav>
     <div class="sidebar-foot">
@@ -1194,16 +1195,16 @@
           </div>
           <div class="fsec-body">
             <div class="hint" style="margin-bottom:8px;">
-              타부서에서 받은 발주서(.xls/.xlsx)를 올리면 상품·수령정보가 자동으로 채워져요.
+              타부서에서 받은 발주서(.xls/.xlsx/.pdf)를 올리면 상품·수령정보가 자동으로 채워져요. PDF는 AI가 내용을 읽어서 채워요 — 양식이 거래처마다 달라도 괜찮아요.
               <b>수령지가 같은 발주서 여러 장</b>을 동시에 올리면 상품을 합쳐 한 요청(합포장)으로 등록돼요.
               수령지가 다른 발주서를 함께 올리면 등록이 막혀요 — 그럴 땐 위쪽 <b>📥 여러 배송지 한 번에 등록 (다중)</b> 을 쓰거나 파일을 하나씩 따로 올려 주세요.
             </div>
             <div class="dz-heading main"><span class="dz-badge">①</span><div><span class="dz-title">요청서(발주서) 파일 업로드</span><span class="dz-desc">이 파일로 상품·수령정보를 채워요</span></div></div>
             <label for="fOrderFile" class="dropzone" id="fOrderDrop" style="margin-top:4px;">
               <span class="dz-icon">📎</span>
-              <span class="dz-text"><b>클릭</b>하거나 파일을 여기로 끌어다 놓으세요 (여러 개 가능)<span class="dz-sub">.xls, .xlsx</span></span>
+              <span class="dz-text"><b>클릭</b>하거나 파일을 여기로 끌어다 놓으세요 (여러 개 가능)<span class="dz-sub">.xls, .xlsx, .pdf</span></span>
             </label>
-            <input id="fOrderFile" type="file" accept=".xls,.xlsx" multiple class="dz-input">
+            <input id="fOrderFile" type="file" accept=".xls,.xlsx,.pdf" multiple class="dz-input">
             <div id="fOrderFileName" class="dz-filelist"></div>
             <div class="ferr" id="fOrderFileMsg" style="margin-top:6px;font-size:13px;"></div>
 
@@ -1519,8 +1520,26 @@
         </div>
       </div>
 
-      <!-- ============ 재고 감시(안전재고 임계치) ============ -->
+      <!-- ============ 물류팀 전용 허브 — 비밀번호 통과 후 카테고리 선택 ============ -->
+      <div id="logisticsHubSection" style="display:none;padding:4px 2px;">
+        <p style="font-size:13px;color:var(--text-muted);margin:0 0 16px;">물류팀만 쓰는 화면이에요. 작업할 항목을 골라주세요.</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;max-width:700px;">
+          <button type="button" class="logisticsHubCard" data-target="stockwatch" style="text-align:left;cursor:pointer;border:1px solid var(--border);border-radius:14px;padding:20px;background:var(--surface);color:var(--text);">
+            <div style="font-size:26px;margin-bottom:8px;">📦</div>
+            <div style="font-size:15.5px;font-weight:700;margin-bottom:4px;">재고 감시</div>
+            <div style="font-size:12.5px;color:var(--text-muted);line-height:1.5;">등록한 상품 재고가 기준보다 적어지면 Slack으로 자동 경고</div>
+          </button>
+          <button type="button" class="logisticsHubCard" data-target="ascheck" style="text-align:left;cursor:pointer;border:1px solid var(--border);border-radius:14px;padding:20px;background:var(--surface);color:var(--text);">
+            <div style="font-size:26px;margin-bottom:8px;">📋</div>
+            <div style="font-size:15.5px;font-weight:700;margin-bottom:4px;">A/S 입고 확인</div>
+            <div style="font-size:12.5px;color:var(--text-muted);line-height:1.5;">CS팀 입고·반품입고 건을 바코드로 한 번 더 이중체크</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- ============ 재고 감시(안전재고 임계치) — 물류팀 허브에서만 들어와요 ============ -->
       <div id="stockWatchSection" style="display:none;padding:4px 2px;">
+        <button type="button" class="btn ghost" id="stockWatchBackBtn" style="margin-bottom:10px;">← 물류팀 메뉴로</button>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
           <input type="text" id="stockWatchSearchInput" placeholder="상품명·상품코드로 검색" style="flex:1;min-width:200px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface-alt,#fff);color:var(--text);">
           <button type="button" class="btn ghost" id="stockWatchRunBtn">지금 확인</button>
@@ -1541,6 +1560,82 @@
             </thead>
             <tbody id="stockWatchTableBody"></tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- ============ A/S 입고 이중체크 — 물류팀 허브에서만 들어와요 ============ -->
+      <div id="asCheckSection" style="display:none;padding:4px 2px;">
+        <button type="button" class="btn ghost" id="asCheckBackBtn" style="margin-bottom:10px;">← 물류팀 메뉴로</button>
+        <div id="asCheckBody">
+          <div style="display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;background:var(--surface-alt,#f5f5f7);border-radius:10px;padding:12px;margin-bottom:12px;">
+            <div>
+              <label style="font-size:12px;font-weight:600;color:var(--text-muted);">조회 시작일</label>
+              <input type="date" id="asCheckStartDate" style="display:block;margin-top:4px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;background:var(--surface);color:var(--text);">
+            </div>
+            <div>
+              <label style="font-size:12px;font-weight:600;color:var(--text-muted);">조회 종료일</label>
+              <input type="date" id="asCheckEndDate" style="display:block;margin-top:4px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;background:var(--surface);color:var(--text);">
+            </div>
+            <button type="button" class="btn primary" id="asCheckRefreshBtn">↻ 이 기간 이지어드민에서 받아오기</button>
+            <button type="button" class="btn ghost" id="asCheckExportBtn">⬇ 엑셀로 다운로드(증빙용, 전체 기록)</button>
+            <span id="asCheckSummary" style="font-size:13px;color:var(--text-muted);margin-left:4px;"></span>
+          </div>
+
+          <!-- 캘린더 — 날짜별로 몇 건·몇 건 남았는지 한눈에 보고, 날짜를 눌러서 그날 것만 작업합니다 -->
+          <div style="border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+              <button type="button" class="btn ghost small" id="asCalPrevBtn">◀</button>
+              <strong id="asCalLabel" style="font-size:14.5px;"></strong>
+              <button type="button" class="btn ghost small" id="asCalNextBtn">▶</button>
+              <span id="asCalSelectedInfo" style="font-size:12.5px;color:var(--text-muted);margin-left:auto;"></span>
+              <button type="button" class="btn ghost small" id="asCalClearBtn" style="display:none;">전체 보기</button>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:11.5px;">
+              <div style="padding:5px;text-align:center;background:var(--surface-alt,#f5f5f7);color:var(--text-muted);">일</div>
+              <div style="padding:5px;text-align:center;background:var(--surface-alt,#f5f5f7);color:var(--text-muted);">월</div>
+              <div style="padding:5px;text-align:center;background:var(--surface-alt,#f5f5f7);color:var(--text-muted);">화</div>
+              <div style="padding:5px;text-align:center;background:var(--surface-alt,#f5f5f7);color:var(--text-muted);">수</div>
+              <div style="padding:5px;text-align:center;background:var(--surface-alt,#f5f5f7);color:var(--text-muted);">목</div>
+              <div style="padding:5px;text-align:center;background:var(--surface-alt,#f5f5f7);color:var(--text-muted);">금</div>
+              <div style="padding:5px;text-align:center;background:var(--surface-alt,#f5f5f7);color:var(--text-muted);">토</div>
+            </div>
+            <div id="asCalGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-top:0;border-radius:0 0 8px 8px;overflow:hidden;"></div>
+          </div>
+
+          <div id="asCheckScanBar" style="display:none;gap:10px;align-items:center;flex-wrap:wrap;background:var(--surface-alt,#f5f5f7);border-radius:10px;padding:12px;margin-bottom:12px;">
+            <div style="flex:1;min-width:220px;">
+              <label style="font-size:12px;font-weight:600;color:var(--text-muted);">바코드 스캔 (스캐너로 찍으면 자동 입력돼요)</label>
+              <input type="text" id="asCheckBarcodeInput" placeholder="여기 커서를 두고 스캔하세요" autocomplete="off" style="width:100%;margin-top:4px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:15px;background:var(--surface);color:var(--text);box-sizing:border-box;">
+            </div>
+            <div style="min-width:160px;">
+              <label style="font-size:12px;font-weight:600;color:var(--text-muted);">스캔한 사람</label>
+              <input type="text" id="asCheckScannerName" placeholder="이름" style="width:100%;margin-top:4px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface);color:var(--text);box-sizing:border-box;">
+            </div>
+            <button type="button" class="btn primary" id="asCheckSaveBtn" disabled style="opacity:.5;">저장 (<span id="asCheckPendingCount">0</span>건 반영)</button>
+          </div>
+
+          <div id="asCheckPlaceholder" style="padding:30px;text-align:center;color:var(--text-muted);font-size:13.5px;border:1px solid var(--border);border-radius:10px;">
+            ↑ 캘린더에서 날짜를 눌러 그날 입고된 건만 모아서 작업해 주세요. (전체를 한 번에 보려면 "전체 보기"를 눌러주세요)
+          </div>
+          <div id="asCheckListWrap" style="display:none;overflow-x:auto;border:1px solid var(--border);border-radius:10px;max-height:55vh;overflow-y:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+              <thead>
+                <tr style="background:var(--surface-alt,#f5f5f7);">
+                  <th style="text-align:left;padding:9px 10px;">상태</th>
+                  <th style="text-align:left;padding:9px 10px;">작업일</th>
+                  <th style="text-align:left;padding:9px 10px;">작업자</th>
+                  <th style="text-align:left;padding:9px 10px;">상품명</th>
+                  <th style="text-align:left;padding:9px 10px;">상품코드</th>
+                  <th style="text-align:left;padding:9px 10px;">바코드</th>
+                  <th style="text-align:left;padding:9px 10px;">수량</th>
+                  <th style="text-align:left;padding:9px 10px;">전표번호</th>
+                  <th style="text-align:left;padding:9px 10px;">요청메모</th>
+                  <th style="padding:9px 10px;"></th>
+                </tr>
+              </thead>
+              <tbody id="asCheckTableBody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -1938,6 +2033,390 @@
   document.getElementById("stockWatchAddBtn").addEventListener("click", () => openStockWatchEditor(null));
   document.getElementById("stockWatchRunBtn").addEventListener("click", runStockWatchCheckNow);
 
+  /* =======================================================================
+     물류팀 전용 허브 — 비밀번호 문단속
+     타 부서도 보는 대시보드라서, 로그인 계정 없이 "물류팀만 아는 비밀번호" 하나로
+     재고 감시·A/S 입고 확인 화면 묶음을 가립니다. 한 번 맞히면 이 탭을 닫기 전까진
+     다시 묻지 않아요(sessionStorage).
+     ======================================================================= */
+  const LOGISTICS_GATED_VIEWS = new Set(["logisticsHub", "stockwatch", "ascheck"]);
+  let LOGISTICS_UNLOCKED = (() => { try { return sessionStorage.getItem("logisticsUnlocked") === "1"; } catch (e) { return false; } })();
+
+  function askLogisticsPassword() {
+    return new Promise((resolve) => {
+      let ov = document.getElementById("logisticsGateModal");
+      if (!ov) {
+        ov = document.createElement("div");
+        ov.id = "logisticsGateModal";
+        ov.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;";
+        ov.innerHTML = `
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;max-width:360px;width:100%;padding:20px;box-shadow:0 12px 44px rgba(0,0,0,.22);">
+            <div style="font-size:16px;font-weight:700;margin-bottom:4px;color:var(--text);">🔒 물류팀 전용 화면</div>
+            <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:14px;">비밀번호를 입력해 주세요.</div>
+            <input id="lgPwInput" type="password" placeholder="비밀번호" style="width:100%;margin:4px 0 4px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:var(--surface-alt,#fff);color:var(--text);box-sizing:border-box;">
+            <div id="lgPwErr" style="font-size:12px;color:var(--danger);min-height:16px;margin:4px 0 8px;"></div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+              <button id="lgPwCancel" type="button" class="btn ghost">취소</button>
+              <button id="lgPwOk" type="button" class="btn primary">확인</button>
+            </div>
+          </div>`;
+        document.body.appendChild(ov);
+      }
+      const input = ov.querySelector("#lgPwInput");
+      const err = ov.querySelector("#lgPwErr");
+      input.value = ""; err.textContent = "";
+      ov.style.display = "flex";
+      setTimeout(() => input.focus(), 30);
+
+      const cleanup = () => {
+        okBtn.removeEventListener("click", onOk);
+        cancelBtn.removeEventListener("click", onCancel);
+        ov.removeEventListener("keydown", onKey);
+      };
+      const close = (result) => { ov.style.display = "none"; cleanup(); resolve(result); };
+      const onOk = async () => {
+        const pwd = input.value;
+        if (!pwd) { err.textContent = "비밀번호를 입력해 주세요."; return; }
+        okBtn.disabled = true;
+        try {
+          const res = await fetch(API_BASE + "/api/logistics-gate/verify", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ password: pwd }),
+          });
+          const out = await res.json();
+          if (out.ok) { close(true); }
+          else { err.textContent = "비밀번호가 올바르지 않아요."; input.focus(); input.select(); }
+        } catch (e) { err.textContent = "연결에 실패했어요. 다시 시도해 주세요."; }
+        okBtn.disabled = false;
+      };
+      const onCancel = () => close(false);
+      const onKey = (e) => {
+        if (e.key === "Enter") { e.preventDefault(); onOk(); }
+        else if (e.key === "Escape") { e.preventDefault(); onCancel(); }
+      };
+      const okBtn = ov.querySelector("#lgPwOk");
+      const cancelBtn = ov.querySelector("#lgPwCancel");
+      okBtn.addEventListener("click", onOk);
+      cancelBtn.addEventListener("click", onCancel);
+      ov.addEventListener("keydown", onKey);
+    });
+  }
+
+  function requestLogisticsUnlock(targetView) {
+    askLogisticsPassword().then(ok => {
+      if (!ok) return;
+      LOGISTICS_UNLOCKED = true;
+      try { sessionStorage.setItem("logisticsUnlocked", "1"); } catch (e) {}
+      setView(targetView);
+    });
+  }
+
+  document.querySelectorAll(".logisticsHubCard").forEach(card => card.addEventListener("click", () => {
+    setView(card.dataset.target);
+  }));
+  const stockWatchBackBtn = document.getElementById("stockWatchBackBtn");
+  if (stockWatchBackBtn) stockWatchBackBtn.addEventListener("click", () => setView("logisticsHub"));
+  const asCheckBackBtn = document.getElementById("asCheckBackBtn");
+  if (asCheckBackBtn) asCheckBackBtn.addEventListener("click", () => setView("logisticsHub"));
+
+  /* =======================================================================
+     A/S 입고 이중체크
+     CS팀이 이지어드민에 등록한 입고·반품입고 전표를 끌어와서, 물류팀이 실물을
+     바코드로 한 번 더 스캔해 확인합니다. 스캔은 바로 저장되지 않고 화면에서만
+     초록색으로 표시(pending)되다가, "저장" 버튼을 눌러야 서버에 반영됩니다.
+     ======================================================================= */
+  let AS_CHECK_ROWS = [];
+  let AS_CHECK_PENDING = new Set();   // 아직 저장 전, 이번 세션에 스캔으로 매칭된 id들
+  let AS_CHECK_LOADED = false;
+  let AS_CHECK_SELECTED_DATE = null;  // null=날짜 선택 전, "ALL"=전체 보기, "YYYY-MM-DD"=그 날짜만
+  let AS_CAL_YEAR = null, AS_CAL_MONTH = null;   // 1~12
+
+  const asDateOf = (r) => String(r.workDate || "").slice(0, 10);   // "YYYY-MM-DD HH:MM:SS" → 날짜만
+
+  async function loadAsChecks() {
+    try {
+      const res = await fetch(API_BASE + "/api/as-intake-checks");
+      if (!res.ok) throw new Error("서버 응답 " + res.status);
+      AS_CHECK_ROWS = await res.json();
+    } catch (e) { /* 실패해도 기존 목록 유지 */ }
+  }
+
+  function enterAsCheckView() {
+    AS_CHECK_PENDING.clear();
+    AS_CHECK_SELECTED_DATE = null;
+    const nameInput = document.getElementById("asCheckScannerName");
+    if (nameInput && !nameInput.value) {
+      try { nameInput.value = localStorage.getItem("asCheckScannerName") || ""; } catch (e) {}
+    }
+    const today = new Date();
+    const startEl = document.getElementById("asCheckStartDate");
+    const endEl = document.getElementById("asCheckEndDate");
+    if (startEl && !startEl.value) {
+      const start = new Date(today); start.setDate(start.getDate() - 14); // 기본 "보름"
+      startEl.value = start.toISOString().slice(0, 10);
+    }
+    if (endEl && !endEl.value) endEl.value = today.toISOString().slice(0, 10);
+    (async () => {
+      if (!AS_CHECK_LOADED) { await loadAsChecks(); AS_CHECK_LOADED = true; }
+      if (AS_CAL_YEAR == null) { AS_CAL_YEAR = today.getFullYear(); AS_CAL_MONTH = today.getMonth() + 1; }
+      renderAsCheckCalendar();
+      renderAsCheckTable();
+    })();
+  }
+
+  /* ===== 캘린더 — 날짜별 건수를 한눈에 보고, 날짜를 눌러 그날 것만 작업 ===== */
+  function renderAsCheckCalendar() {
+    const label = document.getElementById("asCalLabel");
+    const grid = document.getElementById("asCalGrid");
+    if (!label || !grid) return;
+    label.textContent = `${AS_CAL_YEAR}년 ${AS_CAL_MONTH}월`;
+
+    const byDate = {};
+    AS_CHECK_ROWS.forEach(r => {
+      const d = asDateOf(r);
+      if (!d) return;
+      (byDate[d] ||= []).push(r);
+    });
+
+    const first = new Date(AS_CAL_YEAR, AS_CAL_MONTH - 1, 1);
+    const startWeekday = first.getDay();
+    const daysInMonth = new Date(AS_CAL_YEAR, AS_CAL_MONTH, 0).getDate();
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    let cells = "";
+    for (let i = 0; i < startWeekday; i++) cells += `<div style="background:var(--surface);min-height:58px;"></div>`;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${AS_CAL_YEAR}-${String(AS_CAL_MONTH).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      const rows = byDate[dateStr] || [];
+      const total = rows.length;
+      const undone = rows.filter(r => !r.checkedAt).length;
+      const isToday = dateStr === todayStr;
+      const isSelected = AS_CHECK_SELECTED_DATE === dateStr;
+      let chip = "";
+      if (total > 0) {
+        const chipColor = undone > 0 ? "var(--warn,#a8501b)" : "var(--ok,#1a8a4a)";
+        chip = `<div style="margin-top:3px;font-size:10.5px;font-weight:700;color:${chipColor};">${total}건${undone > 0 ? ` · ${undone}건 남음` : " · 완료"}</div>`;
+      }
+      cells += `<div class="asCalDay" data-date="${dateStr}" style="background:var(--surface);min-height:58px;padding:6px;cursor:pointer;box-sizing:border-box;
+          ${isSelected ? "outline:2px solid var(--primary,#2563eb);outline-offset:-2px;" : ""}">
+        <div style="font-size:12px;font-weight:${isToday ? "800" : "500"};color:${isToday ? "var(--primary,#2563eb)" : "var(--text)"};">${d}</div>
+        ${chip}
+      </div>`;
+    }
+    grid.innerHTML = cells;
+    grid.querySelectorAll(".asCalDay[data-date]").forEach(cell => cell.addEventListener("click", () => {
+      AS_CHECK_SELECTED_DATE = cell.dataset.date;
+      renderAsCheckCalendar();
+      renderAsCheckTable();
+    }));
+
+    const info = document.getElementById("asCalSelectedInfo");
+    const clearBtn = document.getElementById("asCalClearBtn");
+    if (AS_CHECK_SELECTED_DATE && AS_CHECK_SELECTED_DATE !== "ALL") {
+      info.textContent = `${AS_CHECK_SELECTED_DATE} 작업 중`;
+      clearBtn.style.display = "";
+    } else if (AS_CHECK_SELECTED_DATE === "ALL") {
+      info.textContent = "전체 보기 중";
+      clearBtn.style.display = "";
+    } else {
+      info.textContent = "";
+      clearBtn.style.display = "none";
+    }
+  }
+
+  function renderAsCheckTable() {
+    const tbody = document.getElementById("asCheckTableBody");
+    const scanBar = document.getElementById("asCheckScanBar");
+    const listWrap = document.getElementById("asCheckListWrap");
+    const placeholder = document.getElementById("asCheckPlaceholder");
+    if (!tbody) return;
+
+    if (!AS_CHECK_SELECTED_DATE) {
+      scanBar.style.display = "none";
+      listWrap.style.display = "none";
+      placeholder.style.display = "";
+      updateAsCheckSummary();
+      return;
+    }
+    placeholder.style.display = "none";
+    listWrap.style.display = "";
+    scanBar.style.display = "flex";
+    const rows = AS_CHECK_SELECTED_DATE === "ALL"
+      ? AS_CHECK_ROWS.slice()
+      : AS_CHECK_ROWS.filter(r => asDateOf(r) === AS_CHECK_SELECTED_DATE);
+    rows.sort((a, b) => String(a.workDate || "").localeCompare(String(b.workDate || "")));
+
+    tbody.innerHTML = rows.map(r => {
+      const pending = AS_CHECK_PENDING.has(r.id);
+      const done = !!r.checkedAt;
+      const bg = (done || pending) ? "background:#eafaf0;" : "";
+      let statusCell;
+      if (done) {
+        statusCell = `<span style="color:var(--ok,#1a8a4a);font-weight:700;">✅ 확인됨</span>
+          <div style="font-size:10.5px;color:var(--text-muted);">${esc(r.checkedBy || "")} · ${esc(String(r.checkedAt).replace("T", " ").slice(0, 16))}</div>
+          <button type="button" class="btn ghost small" data-uncheck="${r.id}" style="margin-top:3px;">되돌리기</button>`;
+      } else if (pending) {
+        statusCell = `<span style="color:var(--ok,#1a8a4a);font-weight:700;">✅ 스캔됨(저장 전)</span>`;
+      } else {
+        statusCell = `<span style="color:var(--text-muted);">미확인</span>`;
+      }
+      return `<tr style="border-top:1px solid var(--border);${bg}">
+        <td style="padding:8px 10px;">${statusCell}</td>
+        <td style="padding:8px 10px;white-space:nowrap;font-size:12.5px;">${esc(asDateOf(r) || "-")}</td>
+        <td style="padding:8px 10px;">${esc(r.owner || "-")}</td>
+        <td style="padding:8px 10px;">${esc(r.productName || "-")}${r.optionValue ? ` <span style="color:var(--text-muted);">(${esc(r.optionValue)})</span>` : ""}</td>
+        <td style="padding:8px 10px;font-family:monospace;font-size:12px;">${esc(r.productId || "-")}</td>
+        <td style="padding:8px 10px;font-family:monospace;font-size:12px;">${esc(r.barcode || "-")}</td>
+        <td style="padding:8px 10px;">${r.qty}개</td>
+        <td style="padding:8px 10px;font-size:11.5px;color:var(--text-muted);">${esc(r.sheet || "-")}</td>
+        <td style="padding:8px 10px;font-size:11.5px;color:var(--text-muted);max-width:200px;">${esc(r.memo || "-")}</td>
+        <td></td>
+      </tr>`;
+    }).join("") || `<tr><td colspan="10" style="padding:22px;text-align:center;color:var(--text-muted);">이 날짜엔 대상 건이 없어요.</td></tr>`;
+    tbody.querySelectorAll("[data-uncheck]").forEach(b => b.addEventListener("click", () => uncheckAsRow(b.dataset.uncheck)));
+    updateAsCheckSummary();
+    const barcodeInput = document.getElementById("asCheckBarcodeInput");
+    if (barcodeInput) setTimeout(() => barcodeInput.focus(), 50);
+  }
+
+  function updateAsCheckSummary() {
+    const total = AS_CHECK_ROWS.length;
+    const done = AS_CHECK_ROWS.filter(r => !!r.checkedAt).length;
+    const pending = AS_CHECK_PENDING.size;
+    document.getElementById("asCheckSummary").textContent =
+      `전체 ${total}건 · 확인됨 ${done}건 · 미확인 ${total - done - pending}건` + (pending ? ` · 이번에 스캔 ${pending}건(저장 전)` : "");
+    const saveBtn = document.getElementById("asCheckSaveBtn");
+    if (!saveBtn) return;
+    document.getElementById("asCheckPendingCount").textContent = pending;
+    saveBtn.disabled = pending === 0;
+    saveBtn.style.opacity = pending === 0 ? ".5" : "1";
+  }
+
+  async function uncheckAsRow(id) {
+    if (!confirm("확인을 취소할까요?")) return;
+    try {
+      const res = await fetch(API_BASE + "/api/as-intake-checks/" + encodeURIComponent(id) + "/uncheck", { method: "PATCH" });
+      if (!res.ok) throw new Error("서버 응답 " + res.status);
+      await loadAsChecks();
+      renderAsCheckCalendar();
+      renderAsCheckTable();
+    } catch (e) { alert("되돌리기에 실패했어요: " + (e.message || "연결 오류")); }
+  }
+
+  function handleAsBarcodeScan(code) {
+    const target = AS_CHECK_ROWS.find(r => !r.checkedAt && !AS_CHECK_PENDING.has(r.id)
+      && ((r.barcode && r.barcode.trim() === code) || (r.productId && r.productId.trim() === code)));
+    if (!target) {
+      showBanner(`<span>⚠️ "${esc(code)}" — 일치하는 미확인 항목을 못 찾았어요.</span>`, "error");
+      setTimeout(() => showBanner(""), 3000);
+      return;
+    }
+    AS_CHECK_PENDING.add(target.id);
+    const matchDate = asDateOf(target);
+    renderAsCheckCalendar();
+    renderAsCheckTable();
+    const dateNote = (AS_CHECK_SELECTED_DATE !== "ALL" && matchDate !== AS_CHECK_SELECTED_DATE) ? ` (${matchDate} 항목이에요)` : "";
+    showBanner(`<span>✅ 매칭됨 — ${esc(target.productName || target.productId)}${dateNote}</span>`, "ok");
+    setTimeout(() => showBanner(""), 2200);
+  }
+
+  document.getElementById("asCalPrevBtn")?.addEventListener("click", () => {
+    AS_CAL_MONTH--; if (AS_CAL_MONTH < 1) { AS_CAL_MONTH = 12; AS_CAL_YEAR--; }
+    renderAsCheckCalendar();
+  });
+  document.getElementById("asCalNextBtn")?.addEventListener("click", () => {
+    AS_CAL_MONTH++; if (AS_CAL_MONTH > 12) { AS_CAL_MONTH = 1; AS_CAL_YEAR++; }
+    renderAsCheckCalendar();
+  });
+  document.getElementById("asCalClearBtn")?.addEventListener("click", () => {
+    AS_CHECK_SELECTED_DATE = null;
+    renderAsCheckCalendar();
+    renderAsCheckTable();
+  });
+
+  const asBarcodeInputEl2 = () => document.getElementById("asCheckBarcodeInput");
+  document.getElementById("asCheckSection")?.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    const inp = asBarcodeInputEl2();
+    if (!inp || e.target !== inp) return;
+    e.preventDefault();
+    const code = inp.value.trim();
+    inp.value = "";
+    if (code) handleAsBarcodeScan(code);
+  });
+  const asScannerNameEl = document.getElementById("asCheckScannerName");
+  if (asScannerNameEl) {
+    asScannerNameEl.addEventListener("input", () => {
+      try { localStorage.setItem("asCheckScannerName", asScannerNameEl.value); } catch (e) {}
+    });
+  }
+  const asRefreshBtn = document.getElementById("asCheckRefreshBtn");
+  if (asRefreshBtn) asRefreshBtn.addEventListener("click", async () => {
+    const start = document.getElementById("asCheckStartDate").value;
+    const end = document.getElementById("asCheckEndDate").value;
+    if (!start || !end) { alert("시작일과 종료일을 모두 선택해 주세요."); return; }
+    if (start > end) { alert("시작일이 종료일보다 늦어요."); return; }
+    asRefreshBtn.disabled = true; asRefreshBtn.textContent = "받아오는 중…(기간이 길면 1분 넘게 걸릴 수 있어요)";
+    try {
+      const res = await fetch(API_BASE + `/api/as-intake-checks/sync?start=${start}&end=${end}`, { method: "POST" });
+      if (!res.ok) throw new Error("서버 응답 " + res.status);
+      const out = await res.json();
+      await loadAsChecks();
+      renderAsCheckCalendar();
+      renderAsCheckTable();
+      showBanner(`<span>새로 ${out.added}건 받아왔어요 (전체 ${out.total}건)</span>`, "ok");
+      setTimeout(() => showBanner(""), 2500);
+    } catch (e) { alert("받아오기에 실패했어요: " + (e.message || "연결 오류")); }
+    finally { asRefreshBtn.disabled = false; asRefreshBtn.textContent = "↻ 이 기간 이지어드민에서 받아오기"; }
+  });
+  const asSaveBtn = document.getElementById("asCheckSaveBtn");
+  if (asSaveBtn) asSaveBtn.addEventListener("click", async () => {
+    const name = (asScannerNameEl.value || "").trim();
+    if (!name) { alert("스캔한 사람 이름을 입력해 주세요."); asScannerNameEl.focus(); return; }
+    if (!AS_CHECK_PENDING.size) return;
+    asSaveBtn.disabled = true; asSaveBtn.textContent = "저장 중…";
+    try {
+      const res = await fetch(API_BASE + "/api/as-intake-checks/check", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [...AS_CHECK_PENDING], checkedBy: name }),
+      });
+      if (!res.ok) throw new Error("서버 응답 " + res.status);
+      AS_CHECK_PENDING.clear();
+      await loadAsChecks();
+      renderAsCheckCalendar();
+      renderAsCheckTable();
+      showBanner(`<span>저장했어요.</span>`, "ok");
+      setTimeout(() => showBanner(""), 2000);
+    } catch (e) { alert("저장에 실패했어요: " + (e.message || "연결 오류")); }
+    finally { asSaveBtn.disabled = false; asSaveBtn.innerHTML = `저장 (<span id="asCheckPendingCount">${AS_CHECK_PENDING.size}</span>건 반영)`; }
+  });
+
+  /** 물류팀 방어용 증빙 자료 — 지금 불러와 있는 전체 A/S 입고 이력(확인자·확인일시 포함)을 엑셀로 내려받습니다. */
+  document.getElementById("asCheckExportBtn")?.addEventListener("click", () => {
+    if (!AS_CHECK_ROWS.length) { alert("먼저 기간을 받아와 주세요."); return; }
+    const rows = AS_CHECK_ROWS.slice().sort((a, b) => String(a.workDate || "").localeCompare(String(b.workDate || "")));
+    const data = rows.map(r => ({
+      "작업일": asDateOf(r),
+      "작업자(CS팀)": r.owner || "",
+      "상품명": r.productName || "",
+      "옵션": r.optionValue || "",
+      "상품코드": r.productId || "",
+      "바코드": r.barcode || "",
+      "수량": r.qty,
+      "전표번호": r.sheet || "",
+      "전표명": r.sheetName || "",
+      "요청메모": r.memo || "",
+      "물류팀 확인여부": r.checkedAt ? "확인됨" : "미확인",
+      "확인자(물류팀)": r.checkedBy || "",
+      "확인일시": r.checkedAt ? String(r.checkedAt).replace("T", " ").slice(0, 19) : "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "AS입고확인");
+    const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    XLSX.writeFile(wb, `AS입고이중체크_${stamp}.xlsx`);
+  });
+
   let DATA = [];
   function rebuildData() {
     DATA = SERVER.map(r => normalize(fromServer(r), "server"));
@@ -2204,7 +2683,7 @@
   // 안전재고·취소 내역처럼 지표 카드를 아예 안 쓰는 화면에서는, 다른 이유로 focus mode가
   // 꺼지더라도(예: 상태 탭을 눌러서 clearTodayFilter가 불릴 때) 카드가 다시 튀어나오면 안 됩니다.
   function chromeHiddenView() {
-    return activeView === "form" || activeView === "logistics" || activeView === "cancelled" || activeView === "safety" || activeView === "exceltool" || activeView === "stores" || activeView === "stockwatch";
+    return activeView === "form" || activeView === "logistics" || activeView === "cancelled" || activeView === "safety" || activeView === "exceltool" || activeView === "stores" || activeView === "stockwatch" || activeView === "ascheck" || activeView === "logisticsHub";
   }
   function setFocusMode(on) {
     const hide = on || chromeHiddenView();
@@ -3660,6 +4139,11 @@
   }
 
   function setView(view) {
+    // 물류팀 전용 화면들 — 비밀번호를 통과하기 전엔 들어갈 수 없게 가로챕니다.
+    if (LOGISTICS_GATED_VIEWS.has(view) && !LOGISTICS_UNLOCKED) {
+      requestLogisticsUnlock(view);
+      return;
+    }
     activeView = view;
     selected.clear();   // 화면을 바꾸면 선택은 초기화
     document.querySelectorAll(".navitem").forEach(b => b.classList.toggle("active", b.dataset.view === view));
@@ -3676,6 +4160,8 @@
       exceltool: ["엑셀 작업실", "엑셀 파일을 올려서 매칭·계산·정리 작업을 하고, 완료되면 그대로 내려받아요"],
       stores: ["매장 관리", "매장 이름·주소·연락처와 별칭을 관리해요. 여기서 추가하면 업로드 파일 자동 인식에 바로 쓰여요"],
       stockwatch: ["재고 감시", "등록한 상품의 재고가 기준 수량보다 적어지면 매일 09시·14시에 물류 그룹으로 Slack 알림을 보내요"],
+      ascheck: ["A/S 입고 확인", "CS팀이 이지어드민에 등록한 입고·반품입고 건을 바코드로 한 번 더 확인하는 물류팀 전용 화면이에요"],
+      logisticsHub: ["물류팀", "물류팀만 쓰는 화면이에요. 작업할 항목을 골라주세요"],
     };
     document.getElementById("pageTitle").textContent = titles[view][0];
     document.getElementById("pageSub").textContent = titles[view][1];
@@ -3686,6 +4172,8 @@
     const isExcelTool = view === "exceltool";
     const isStores = view === "stores";
     const isStockWatch = view === "stockwatch";
+    const isAsCheck = view === "ascheck";
+    const isLogisticsHub = view === "logisticsHub";
     const isCancelled = view === "cancelled";
     const isSafety = view === "safety";
     const listOnly = isCancelled || isSafety; // 지표·차트·안내문 없이 목록만
@@ -3694,12 +4182,12 @@
     //    (대시보드 화면에서는 지금처럼 전부 보여요)
     document.body.classList.toggle("lean-banner", view !== "dashboard");
     document.body.classList.toggle("hide-cumulative", view === "all");
-    document.querySelector(".stats").style.display = (isForm || isLogistics || isExcelTool || isStores || isStockWatch || listOnly) ? "none" : "";
-    document.querySelector(".panels").style.display = (isForm || isLogistics || isExcelTool || isStores || isStockWatch || listOnly) ? "none" : "";
-    document.querySelector(".tablecard").style.display = (isForm || isLogistics || isExcelTool || isStores || isStockWatch) ? "none" : "";
+    document.querySelector(".stats").style.display = (isForm || isLogistics || isExcelTool || isStores || isStockWatch || isAsCheck || isLogisticsHub || listOnly) ? "none" : "";
+    document.querySelector(".panels").style.display = (isForm || isLogistics || isExcelTool || isStores || isStockWatch || isAsCheck || isLogisticsHub || listOnly) ? "none" : "";
+    document.querySelector(".tablecard").style.display = (isForm || isLogistics || isExcelTool || isStores || isStockWatch || isAsCheck || isLogisticsHub) ? "none" : "";
     const searchPanelEl = document.getElementById("searchPanel");
-    if (searchPanelEl) searchPanelEl.style.display = (isForm || isLogistics || isExcelTool || isStores || isStockWatch) ? "none" : "";
-    document.querySelector(".howto").style.display = (isForm || isLogistics || isExcelTool || isStores || isStockWatch || listOnly) ? "none" : "";
+    if (searchPanelEl) searchPanelEl.style.display = (isForm || isLogistics || isExcelTool || isStores || isStockWatch || isAsCheck || isLogisticsHub) ? "none" : "";
+    document.querySelector(".howto").style.display = (isForm || isLogistics || isExcelTool || isStores || isStockWatch || isAsCheck || isLogisticsHub || listOnly) ? "none" : "";
     document.getElementById("formSection").style.display = isForm ? "" : "none";
     document.getElementById("logisticsSection").style.display = isLogistics ? "" : "none";
     document.getElementById("excelToolSection").style.display = isExcelTool ? "" : "none";
@@ -3709,6 +4197,11 @@
     const stockWatchSectionEl = document.getElementById("stockWatchSection");
     if (stockWatchSectionEl) stockWatchSectionEl.style.display = isStockWatch ? "" : "none";
     if (isStockWatch) renderStockWatchTable();
+    const asCheckSectionEl = document.getElementById("asCheckSection");
+    if (asCheckSectionEl) asCheckSectionEl.style.display = isAsCheck ? "" : "none";
+    if (isAsCheck) enterAsCheckView();
+    const logisticsHubSectionEl = document.getElementById("logisticsHubSection");
+    if (logisticsHubSectionEl) logisticsHubSectionEl.style.display = isLogisticsHub ? "" : "none";
     // 상태 탭(대기/진행중/완료)은 취소 목록에서만 의미가 없으므로 숨깁니다.
     // 안전재고는 완료건을 따로 보고 싶다는 피드백으로 다른 화면처럼 탭을 그대로 씁니다.
     const statusTabsEl = document.getElementById("statusTabs");
@@ -5290,8 +5783,40 @@
 
   // ===== 발주서(.xls/.xlsx) 자동 채우기 =====
 
+  /** PDF 발주서는 표 셀이 없어서 엑셀처럼 못 읽습니다. 대신 서버가 AI로 내용을 읽게 하고,
+   *  엑셀 경로와 똑같은 {fileName, receiver, products, dests, foundBy} 모양으로 돌려줍니다 —
+   *  그래야 아래 handleOrderFiles()가 엑셀이든 PDF든 구분 없이 그대로 처리할 수 있어요. */
+  async function parsePdfOrderFile(file) {
+    const buf = await file.arrayBuffer();
+    const bytes = new Uint8Array(buf);
+    let bin = "";
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    const res = await fetch(API_BASE + "/api/order-files/parse-pdf", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fileName: file.name, fileBase64: btoa(bin) }),
+    });
+    if (!res.ok) throw new Error(file.name + ": PDF 분석 서버 오류(" + res.status + ")");
+    const out = await res.json();
+    if (!out.ok) throw new Error(file.name + ": " + (out.message || "PDF에서 정보를 읽지 못했어요."));
+
+    const r = out.receiver || {};
+    const receiver = { name: r.name || "", phone: r.phone || "", address: r.address || "", message: r.message || "", store: "" };
+    const products = (out.products || []).map(p => ({ name: p.name || "", option: p.option || "", qty: p.qty || 1 }));
+
+    if (!receiver.name && !receiver.address) {
+      throw new Error(file.name + ": 받는 사람 정보(수령자·주소)를 찾지 못했어요. 발주서가 맞는지 확인해 주세요.");
+    }
+    if (!products.length) throw new Error(file.name + ": 상품 정보를 찾지 못했어요.");
+
+    // PDF 한 장에 배송지가 여러 곳 섞인 경우는 아직 지원하지 않아요(흔치 않은 형태) — 1곳으로 취급합니다.
+    return { fileName: file.name, receiver, products, headerRow: null, dests: 1, foundBy: "PDF 자동 인식(AI)" };
+  }
+
   /** 발주서 하나를 읽어서 {receiver, products, dests, ...} 로 돌려줍니다 (파일 저장은 안 함). */
   async function parseOrderFile(file) {
+    if (/\.pdf$/i.test(file.name) || file.type === "application/pdf") {
+      return parsePdfOrderFile(file);
+    }
     const grid = await readGrid(file);
     if (!grid.length) throw new Error(file.name + ": 빈 파일이에요.");
     const flat = flatAliasMap();
@@ -5473,7 +5998,9 @@
 
     const fileWord = parsed.length > 1 ? `발주서 ${parsed.length}건 (합포장)` : "발주서 1건";
     const refWord = refOnly.length ? ` · 참고용 파일 ${refOnly.length}건은 요청서에 그대로 첨부돼요` : "";
-    const where = `${parsed[0].headerRow}행에서 표를 찾음 · 수령정보는 ${parsed[0].foundBy}에서 읽음`;
+    const where = parsed[0].headerRow != null
+      ? `${parsed[0].headerRow}행에서 표를 찾음 · 수령정보는 ${parsed[0].foundBy}에서 읽음`
+      : parsed[0].foundBy;
     msgEl.style.color = "var(--accent)";
     msgEl.innerHTML = `${esc(fileWord)} · 상품 <b>${added}건</b>을 채웠어요.${esc(refWord)}`
       + receiverSummaryHtml(first, where);
