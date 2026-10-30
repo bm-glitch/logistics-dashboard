@@ -3042,7 +3042,7 @@
   const invActTimeOf = (r) => String(r.workDate || "").slice(11, 16);
   const INV_ACT_JOB_LABEL = {
     in: "입고", out: "출고", retin: "반품입고", retout: "반품출고",
-    arrange: "조정", trans: "재고이관", SHOP_REQ: "매장출고",
+    arrange: "조정", trans: "배송처리", SHOP_REQ: "매장출고",
   };
   const invActJobLabel = (job) => INV_ACT_JOB_LABEL[job] || (job || "-");
 
