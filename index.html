@@ -2610,7 +2610,8 @@
     if (tr) handleAsRowDblClick(tr.dataset.asRow);
   });
 
-  function handleAsBarcodeScan(code) {
+  function handleAsBarcodeScan(rawCode) {
+    const code = stripScanArtifacts(rawCode);
     const target = AS_CHECK_ROWS.find(r => !r.checkedAt && !AS_CHECK_PENDING.has(r.id)
       && ((r.barcode && r.barcode.trim() === code) || (r.productId && r.productId.trim() === code)));
     if (!target) {
@@ -2641,13 +2642,18 @@
     renderAsCheckTable();
   });
 
+  /** 한글 입력기가 켜져 있으면 2벌식 키보드 매핑 때문에 스캐너가 보낸 영문/숫자 앞뒤에
+   *  엉뚱한 한글 자모가 섞여 들어와요(예: "S52216" → "ㄴS52216"). 바코드·상품코드는
+   *  전부 영문/숫자/기호뿐이므로, 그 외 문자(한글 등)는 스캔값에서 전부 제거하고 비교합니다. */
+  const stripScanArtifacts = (s) => String(s || "").replace(/[^\x20-\x7E]/g, "").trim();
+
   const asBarcodeInputEl2 = () => document.getElementById("asCheckBarcodeInput");
   document.getElementById("asCheckSection")?.addEventListener("keydown", (e) => {
     if (e.key !== "Enter") return;
     const inp = asBarcodeInputEl2();
     if (!inp || e.target !== inp) return;
     e.preventDefault();
-    const code = inp.value.trim();
+    const code = stripScanArtifacts(inp.value);
     inp.value = "";
     if (code) handleAsBarcodeScan(code);
   });
@@ -2931,7 +2937,8 @@
     if (tr) handleRcRowDblClick(tr.dataset.rcRow);
   });
 
-  function handleRcBarcodeScan(code) {
+  function handleRcBarcodeScan(rawCode) {
+    const code = stripScanArtifacts(rawCode);
     const target = RC_CHECK_ROWS.find(r => !r.checkedAt && !RC_CHECK_PENDING.has(r.id)
       && ((r.barcode && r.barcode.trim() === code) || (r.productId && r.productId.trim() === code)));
     if (!target) {
@@ -2968,7 +2975,7 @@
     const inp = rcBarcodeInputEl();
     if (!inp || e.target !== inp) return;
     e.preventDefault();
-    const code = inp.value.trim();
+    const code = stripScanArtifacts(inp.value);
     inp.value = "";
     if (code) handleRcBarcodeScan(code);
   });
