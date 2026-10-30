@@ -2541,7 +2541,7 @@
       } else {
         statusCell = `<span style="color:var(--text-muted);" title="더블클릭하면 바로 확인 처리돼요">미확인</span>`;
       }
-      return `<tr data-as-row="${r.id}" style="border-top:1px solid var(--border);${bg}${!done && !pending ? "cursor:pointer;" : ""}" ${!done && !pending ? `title="더블클릭하면 확인 처리돼요"` : ""}>
+      return `<tr data-as-row="${r.id}" style="border-top:1px solid var(--border);${bg}${!done ? "cursor:pointer;" : ""}" ${!done ? `title="더블클릭하면 ${pending ? "미확인으로 취소돼요" : "확인 처리돼요"}"` : ""}>
         <td style="padding:8px 10px;">${statusCell}</td>
         <td style="padding:8px 10px;white-space:nowrap;font-size:12.5px;">${esc(asDateOf(r) || "-")}</td>
         <td style="padding:8px 10px;">${esc(r.owner || "-")}</td>
@@ -2585,10 +2585,20 @@
   }
 
   /** 오전에 전산 확인으로 미리 빼온 상품처럼, 오후에 CS가 종이를 줘도 실물 대조가 끝난 건은
-   *  바코드 스캔 없이 행을 더블클릭해서 바로 "스캔됨(저장 전)" 상태로 넣을 수 있게 합니다. */
+   *  바코드 스캔 없이 행을 더블클릭해서 바로 "스캔됨(저장 전)" 상태로 넣을 수 있게 합니다.
+   *  이미 그 상태면 다시 더블클릭해서 실수 취소(미확인으로 되돌리기)도 가능합니다.
+   *  (저장까지 끝나 "확인됨"이 된 건은 되돌리기 버튼으로만 취소됩니다.) */
   function handleAsRowDblClick(id) {
     const target = AS_CHECK_ROWS.find(r => String(r.id) === String(id) && !r.checkedAt);
-    if (!target || AS_CHECK_PENDING.has(target.id)) return;
+    if (!target) return;
+    if (AS_CHECK_PENDING.has(target.id)) {
+      AS_CHECK_PENDING.delete(target.id);
+      renderAsCheckCalendar();
+      renderAsCheckTable();
+      showBanner(`<span>↩️ 더블클릭으로 취소됨 — ${esc(target.productName || target.productId)}</span>`, "ok");
+      setTimeout(() => showBanner(""), 2000);
+      return;
+    }
     AS_CHECK_PENDING.add(target.id);
     renderAsCheckCalendar();
     renderAsCheckTable();
@@ -2852,7 +2862,7 @@
       } else {
         statusCell = `<span style="color:var(--text-muted);" title="더블클릭하면 바로 확인 처리돼요">미확인</span>`;
       }
-      return `<tr data-rc-row="${r.id}" style="border-top:1px solid var(--border);${bg}${!done && !pending ? "cursor:pointer;" : ""}" ${!done && !pending ? `title="더블클릭하면 확인 처리돼요"` : ""}>
+      return `<tr data-rc-row="${r.id}" style="border-top:1px solid var(--border);${bg}${!done ? "cursor:pointer;" : ""}" ${!done ? `title="더블클릭하면 ${pending ? "미확인으로 취소돼요" : "확인 처리돼요"}"` : ""}>
         <td style="padding:8px 10px;">${statusCell}</td>
         <td style="padding:8px 10px;white-space:nowrap;font-size:12.5px;">${esc(rcDateOf(r) || "-")}</td>
         <td style="padding:8px 10px;">${esc(r.owner || "-")}</td>
@@ -2896,10 +2906,20 @@
   }
 
   /** 오전에 전산 확인으로 미리 빼온 상품처럼, 오후에 CX가 종이를 줘도 실물 대조가 끝난 건은
-   *  바코드 스캔 없이 행을 더블클릭해서 바로 "스캔됨(저장 전)" 상태로 넣을 수 있게 합니다. */
+   *  바코드 스캔 없이 행을 더블클릭해서 바로 "스캔됨(저장 전)" 상태로 넣을 수 있게 합니다.
+   *  이미 그 상태면 다시 더블클릭해서 실수 취소(미확인으로 되돌리기)도 가능합니다.
+   *  (저장까지 끝나 "확인됨"이 된 건은 되돌리기 버튼으로만 취소됩니다.) */
   function handleRcRowDblClick(id) {
     const target = RC_CHECK_ROWS.find(r => String(r.id) === String(id) && !r.checkedAt);
-    if (!target || RC_CHECK_PENDING.has(target.id)) return;
+    if (!target) return;
+    if (RC_CHECK_PENDING.has(target.id)) {
+      RC_CHECK_PENDING.delete(target.id);
+      renderRcCalendar();
+      renderRcTable();
+      showBanner(`<span>↩️ 더블클릭으로 취소됨 — ${esc(target.productName || target.productId)}</span>`, "ok");
+      setTimeout(() => showBanner(""), 2000);
+      return;
+    }
     RC_CHECK_PENDING.add(target.id);
     renderRcCalendar();
     renderRcTable();
