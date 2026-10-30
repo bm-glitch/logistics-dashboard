@@ -1805,6 +1805,7 @@
             <button type="button" class="btn ghost small" id="invActDetailBackBtn">← 작업자 목록으로</button>
             <strong id="invActDetailTitle" style="font-size:13.5px;"></strong>
           </div>
+          <div id="invActJobFilterBar" style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px;background:var(--surface-alt,#f5f5f7);border-bottom:1px solid var(--border);position:sticky;top:34px;"></div>
           <div style="overflow-x:auto;">
             <table style="width:100%;border-collapse:collapse;font-size:13px;">
               <thead>
@@ -2538,9 +2539,9 @@
       } else if (pending) {
         statusCell = `<span style="color:var(--ok,#1a8a4a);font-weight:700;">✅ 스캔됨(저장 전)</span>`;
       } else {
-        statusCell = `<span style="color:var(--text-muted);">미확인</span>`;
+        statusCell = `<span style="color:var(--text-muted);" title="더블클릭하면 바로 확인 처리돼요">미확인</span>`;
       }
-      return `<tr style="border-top:1px solid var(--border);${bg}">
+      return `<tr data-as-row="${r.id}" style="border-top:1px solid var(--border);${bg}${!done && !pending ? "cursor:pointer;" : ""}" ${!done && !pending ? `title="더블클릭하면 확인 처리돼요"` : ""}>
         <td style="padding:8px 10px;">${statusCell}</td>
         <td style="padding:8px 10px;white-space:nowrap;font-size:12.5px;">${esc(asDateOf(r) || "-")}</td>
         <td style="padding:8px 10px;">${esc(r.owner || "-")}</td>
@@ -2582,6 +2583,22 @@
       renderAsCheckTable();
     } catch (e) { alert("되돌리기에 실패했어요: " + (e.message || "연결 오류")); }
   }
+
+  /** 오전에 전산 확인으로 미리 빼온 상품처럼, 오후에 CS가 종이를 줘도 실물 대조가 끝난 건은
+   *  바코드 스캔 없이 행을 더블클릭해서 바로 "스캔됨(저장 전)" 상태로 넣을 수 있게 합니다. */
+  function handleAsRowDblClick(id) {
+    const target = AS_CHECK_ROWS.find(r => String(r.id) === String(id) && !r.checkedAt);
+    if (!target || AS_CHECK_PENDING.has(target.id)) return;
+    AS_CHECK_PENDING.add(target.id);
+    renderAsCheckCalendar();
+    renderAsCheckTable();
+    showBanner(`<span>✅ 더블클릭으로 선택됨 — ${esc(target.productName || target.productId)}</span>`, "ok");
+    setTimeout(() => showBanner(""), 2000);
+  }
+  document.getElementById("asCheckTableBody")?.addEventListener("dblclick", (e) => {
+    const tr = e.target.closest("tr[data-as-row]");
+    if (tr) handleAsRowDblClick(tr.dataset.asRow);
+  });
 
   function handleAsBarcodeScan(code) {
     const target = AS_CHECK_ROWS.find(r => !r.checkedAt && !AS_CHECK_PENDING.has(r.id)
@@ -2833,9 +2850,9 @@
       } else if (pending) {
         statusCell = `<span style="color:var(--ok,#1a8a4a);font-weight:700;">✅ 스캔됨(저장 전)</span>`;
       } else {
-        statusCell = `<span style="color:var(--text-muted);">미확인</span>`;
+        statusCell = `<span style="color:var(--text-muted);" title="더블클릭하면 바로 확인 처리돼요">미확인</span>`;
       }
-      return `<tr style="border-top:1px solid var(--border);${bg}">
+      return `<tr data-rc-row="${r.id}" style="border-top:1px solid var(--border);${bg}${!done && !pending ? "cursor:pointer;" : ""}" ${!done && !pending ? `title="더블클릭하면 확인 처리돼요"` : ""}>
         <td style="padding:8px 10px;">${statusCell}</td>
         <td style="padding:8px 10px;white-space:nowrap;font-size:12.5px;">${esc(rcDateOf(r) || "-")}</td>
         <td style="padding:8px 10px;">${esc(r.owner || "-")}</td>
@@ -2877,6 +2894,22 @@
       renderRcTable();
     } catch (e) { alert("되돌리기에 실패했어요: " + (e.message || "연결 오류")); }
   }
+
+  /** 오전에 전산 확인으로 미리 빼온 상품처럼, 오후에 CX가 종이를 줘도 실물 대조가 끝난 건은
+   *  바코드 스캔 없이 행을 더블클릭해서 바로 "스캔됨(저장 전)" 상태로 넣을 수 있게 합니다. */
+  function handleRcRowDblClick(id) {
+    const target = RC_CHECK_ROWS.find(r => String(r.id) === String(id) && !r.checkedAt);
+    if (!target || RC_CHECK_PENDING.has(target.id)) return;
+    RC_CHECK_PENDING.add(target.id);
+    renderRcCalendar();
+    renderRcTable();
+    showBanner(`<span>✅ 더블클릭으로 선택됨 — ${esc(target.productName || target.productId)}</span>`, "ok");
+    setTimeout(() => showBanner(""), 2000);
+  }
+  document.getElementById("returnCheckTableBody")?.addEventListener("dblclick", (e) => {
+    const tr = e.target.closest("tr[data-rc-row]");
+    if (tr) handleRcRowDblClick(tr.dataset.rcRow);
+  });
 
   function handleRcBarcodeScan(code) {
     const target = RC_CHECK_ROWS.find(r => !r.checkedAt && !RC_CHECK_PENDING.has(r.id)
@@ -3003,12 +3036,13 @@
   let INV_ACT_CAL_YEAR = null, INV_ACT_CAL_MONTH = null;
   let INV_ACT_SELECTED_DATE = null;   // null=날짜 선택 전, "YYYY-MM-DD"=그 날짜
   let INV_ACT_SELECTED_OWNER = null;  // null=작업자 선택 전
+  let INV_ACT_SELECTED_JOB = null;    // null=전체, 아니면 "in"/"retin" 등 작업유형 하나로 좁혀봄
 
   const invActDateOf = (r) => String(r.workDate || "").slice(0, 10);
   const invActTimeOf = (r) => String(r.workDate || "").slice(11, 16);
   const INV_ACT_JOB_LABEL = {
     in: "입고", out: "출고", retin: "반품입고", retout: "반품출고",
-    arrange: "조정", trans: "배송처리", SHOP_REQ: "매장출고",
+    arrange: "조정", trans: "재고이관", SHOP_REQ: "매장출고",
   };
   const invActJobLabel = (job) => INV_ACT_JOB_LABEL[job] || (job || "-");
 
@@ -3023,6 +3057,7 @@
   function enterInventoryActivityView() {
     INV_ACT_SELECTED_DATE = null;
     INV_ACT_SELECTED_OWNER = null;
+    INV_ACT_SELECTED_JOB = null;
     const today = new Date();
     const startEl = document.getElementById("invActStartDate");
     const endEl = document.getElementById("invActEndDate");
@@ -3080,6 +3115,7 @@
     grid.querySelectorAll(".invActCalDay[data-date]").forEach(cell => cell.addEventListener("click", () => {
       INV_ACT_SELECTED_DATE = cell.dataset.date;
       INV_ACT_SELECTED_OWNER = null;
+      INV_ACT_SELECTED_JOB = null;
       renderInvActCalendar();
       renderInvActBody();
     }));
@@ -3139,7 +3175,30 @@
       </tr>`).join("") || `<tr><td colspan="3" style="padding:22px;text-align:center;color:var(--text-muted);">이 날짜엔 기록이 없어요.</td></tr>`;
     tbody.querySelectorAll("[data-owner]").forEach(tr => tr.addEventListener("click", () => {
       INV_ACT_SELECTED_OWNER = tr.dataset.owner;
+      INV_ACT_SELECTED_JOB = null;
       renderInvActBody();
+    }));
+  }
+
+  /** 상세 목록 위에 "전체/입고/출고/반품입고/…" 필터 칩을 그립니다. 실제로 그 날 그 사람이
+   *  건드린 작업유형만 건수와 함께 보여줘서, 없는 카테고리로 지저분해지지 않게 합니다. */
+  function renderInvActJobFilterBar() {
+    const bar = document.getElementById("invActJobFilterBar");
+    if (!bar) return;
+    const allRows = INV_ACT_ROWS.filter(r => invActDateOf(r) === INV_ACT_SELECTED_DATE
+      && (r.owner || "(이름 없음)") === INV_ACT_SELECTED_OWNER);
+    const counts = {};
+    allRows.forEach(r => { counts[r.job] = (counts[r.job] || 0) + 1; });
+    const jobOptions = Object.keys(counts).sort((a, b) => counts[b] - counts[a])
+      .map(job => ({ key: job, label: invActJobLabel(job), count: counts[job] }));
+    const options = [{ key: "", label: "전체", count: allRows.length }, ...jobOptions];
+    bar.innerHTML = options.map(opt => {
+      const active = (INV_ACT_SELECTED_JOB || "") === opt.key;
+      return `<button type="button" class="btn ${active ? "" : "ghost"} small" data-job-filter="${esc(opt.key)}">${esc(opt.label)} (${opt.count})</button>`;
+    }).join("");
+    bar.querySelectorAll("[data-job-filter]").forEach(b => b.addEventListener("click", () => {
+      INV_ACT_SELECTED_JOB = b.dataset.jobFilter || null;
+      renderInvActDetailTable();
     }));
   }
 
@@ -3147,10 +3206,13 @@
     const tbody = document.getElementById("invActDetailTableBody");
     const title = document.getElementById("invActDetailTitle");
     if (!tbody) return;
-    const rows = INV_ACT_ROWS.filter(r => invActDateOf(r) === INV_ACT_SELECTED_DATE
+    renderInvActJobFilterBar();
+    const allRows = INV_ACT_ROWS.filter(r => invActDateOf(r) === INV_ACT_SELECTED_DATE
       && (r.owner || "(이름 없음)") === INV_ACT_SELECTED_OWNER);
+    const rows = INV_ACT_SELECTED_JOB ? allRows.filter(r => r.job === INV_ACT_SELECTED_JOB) : allRows.slice();
     rows.sort((a, b) => String(a.workDate || "").localeCompare(String(b.workDate || "")));
-    if (title) title.textContent = `${INV_ACT_SELECTED_DATE} · ${INV_ACT_SELECTED_OWNER} · ${rows.length}건`;
+    if (title) title.textContent = `${INV_ACT_SELECTED_DATE} · ${INV_ACT_SELECTED_OWNER} · ${rows.length}건`
+      + (INV_ACT_SELECTED_JOB ? ` (${invActJobLabel(INV_ACT_SELECTED_JOB)}만 · 전체 ${allRows.length}건)` : "");
 
     tbody.innerHTML = rows.map(r => `
       <tr style="border-top:1px solid var(--border);">
@@ -3184,11 +3246,13 @@
   document.getElementById("invActCalClearBtn")?.addEventListener("click", () => {
     INV_ACT_SELECTED_DATE = null;
     INV_ACT_SELECTED_OWNER = null;
+    INV_ACT_SELECTED_JOB = null;
     renderInvActCalendar();
     renderInvActBody();
   });
   document.getElementById("invActDetailBackBtn")?.addEventListener("click", () => {
     INV_ACT_SELECTED_OWNER = null;
+    INV_ACT_SELECTED_JOB = null;
     renderInvActBody();
   });
   const invActRefreshBtn = document.getElementById("invActRefreshBtn");
