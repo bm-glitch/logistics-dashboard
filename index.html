@@ -3052,6 +3052,15 @@
     XLSX.writeFile(wb, `반품입고이중체크_${stamp2}.xlsx`);
   });
 
+  // 스캔만 해두고 "저장"을 안 누른 채로 화면을 닫거나 새로고침하면 그 스캔 기록이 날아가므로,
+  // 저장 전 스캔(펜딩)이 남아있을 때는 나가기 전에 한 번 경고합니다.
+  window.addEventListener("beforeunload", (e) => {
+    if (AS_CHECK_PENDING.size > 0 || RC_CHECK_PENDING.size > 0) {
+      e.preventDefault();
+      e.returnValue = "";
+    }
+  });
+
   /* =======================================================================
      재고 작업 현황
      이지어드민에 기록된 모든 재고 변동(입고·출고·반품·조정 등)을 작업자 구분 없이
