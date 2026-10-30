@@ -5926,7 +5926,19 @@
     if (!products.length) throw new Error(file.name + ": 상품 정보를 찾지 못했어요.");
 
     // PDF 한 장에 배송지가 여러 곳 섞인 경우는 아직 지원하지 않아요(흔치 않은 형태) — 1곳으로 취급합니다.
-    return { fileName: file.name, receiver, products, headerRow: null, dests: 1, foundBy: "PDF 자동 인식(AI)" };
+    return { fileName: file.name, receiver, products, headerRow: null, dests: 1, foundBy: "PDF 자동 인식" };
+  }
+
+  /** 다중 등록 칸용 — PDF 한 장을 읽어서 '배송지 한 곳' 주문건으로 돌려줍니다(엑셀 다중 파서의 결과물과 같은 모양).
+   *  이 칸에 PDF를 여러 장 올리면, 파일마다 배송지가 다른 주문건 하나씩으로 처리됩니다. */
+  async function parsePdfAsBulkOrder(file) {
+    const parsed = await parsePdfOrderFile(file);  // 실패하면 그대로 throw 되어 호출부에서 '참고용 첨부'로 넘어감
+    const r = parsed.receiver;
+    return {
+      name: r.name || "", phone: r.phone || "", address: r.address || "", message: r.message || "",
+      products: parsed.products.map(p => ({ name: p.name, option: p.option, qty: p.qty || 1 })),
+      _autoBilling: false,   // PDF에는 판매가 열이 없으므로 위 폼의 유상/무상 선택을 그대로 따릅니다.
+    };
   }
 
   /** 발주서 하나를 읽어서 {receiver, products, dests, ...} 로 돌려줍니다 (파일 저장은 안 함). */
@@ -6329,14 +6341,22 @@
     let anyWarnStores = [];
     const sourceFileNames = [];   // 실제로 주문건을 만들어낸 파일들 — 묶음 이름 기본값으로 씀
     for (const f of files) {
+      const isPdf = /\.pdf$/i.test(f.name) || f.type === "application/pdf";
       try {
-        const parsed = await parseBulkFile(f);
-        if (parsed && parsed.length) {
-          const auto = !!parsed._autoBilling;
-          parsed.forEach(o => { o._autoBilling = auto; });
-          orders = orders.concat(parsed);
+        if (isPdf) {
+          // PDF는 한 장 = 배송지 한 곳(상품 여러 개 가능)으로 처리합니다. 여러 장 올리면 그만큼 주문건이 생깁니다.
+          const o = await parsePdfAsBulkOrder(f);
+          orders.push(o);
           sourceFileNames.push(f.name);
-          if (parsed._warnStores) anyWarnStores = anyWarnStores.concat(parsed._warnStores);
+        } else {
+          const parsed = await parseBulkFile(f);
+          if (parsed && parsed.length) {
+            const auto = !!parsed._autoBilling;
+            parsed.forEach(o => { o._autoBilling = auto; });
+            orders = orders.concat(parsed);
+            sourceFileNames.push(f.name);
+            if (parsed._warnStores) anyWarnStores = anyWarnStores.concat(parsed._warnStores);
+          }
         }
       } catch (e) { /* 배송 양식이 아니면 참고용 파일로 취급 — 오류로 안 보여줍니다 */ }
     }
